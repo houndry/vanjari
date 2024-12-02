@@ -7,11 +7,33 @@ from pathlib import Path
 import pandas as pd
 from seqbank import SeqBank
 from rich.progress import track
+from hierarchicalsoftmax.metrics import RankAccuracyTorchMetric
+from hierarchicalsoftmax.metrics import greedy_accuracy
+from torchmetrics import Metric
 
 from hierarchicalsoftmax import SoftmaxNode
 
 
 class Vanjari(Corgi):
+    @ta.method    
+    def metrics(self) -> list[tuple[str,Metric]]:
+        rank_accuracy = RankAccuracyTorchMetric(
+            root=self.classification_tree, 
+            ranks={1+i:f"rank_{i}" for i in range(11)},
+        )
+        return [('species_accuracy', greedy_accuracy), ('rank_accuracy', rank_accuracy)]
+
+    @ta.tool
+    def max_depth(
+        self, 
+        seqtree:Path=ta.Param(..., help="Path to the SeqTree"), 
+    ):
+        seqtree = SeqTree.load(Path(seqtree))
+        max_depth = 0
+        for leaf in track(seqtree.classification_tree.leaves):
+            max_depth = max(max_depth, len(leaf.ancestors))
+        print(f"Max depth: {max_depth}")
+
     @ta.tool
     def preprocess(
         self, 
