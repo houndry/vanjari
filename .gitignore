@@ -1,0 +1,5 @@
+
+vanjari/__pycache__/
+wandb/
+*.out
+logs/

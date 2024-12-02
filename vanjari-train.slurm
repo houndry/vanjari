@@ -39,18 +39,22 @@ SEQTREE=/home/rturnbull/wytamma/rob/virus/ictv.st
 LEARNING_RATE=0.001
 MACC=100000000000
 EPOCHS=100
-RUN_NAME=vanjari-lr${LEARNING_RATE}m${MACC}e${EPOCHS}
-#OUTPUT_DIR=outputs/$RUN_NAME
-vanjara-tools train         \
+MAX_LENGTH=5000
+VAL_LENGTH=2000
+RUN_NAME=vanjari-lr${LEARNING_RATE}m${MACC}e${EPOCHS}max${MAX_LENGTH}val${VAL_LENGTH}
+
+vanjari-tools train         \
     --seqtree $SEQTREE         \
     --seqbank $SEQBANK         \
     --max-learning-rate $LEARNING_RATE         \
     --macc $MACC         \
     --max-epochs $EPOCHS \
     --run-name $RUN_NAME \
-    --test-partition 0 \
-    --validation-partition 1 \
+    --test-partition -1 \
+    --validation-partition 0 \
     --project-name ICTV \
+    --validation-length $VAL_LENGTH \
+    --maximum-length $MAX_LENGTH \
     --wandb-entity "mariadelmarq-The University of Melbourne" \
     --wandb
 

@@ -7,7 +7,7 @@ from pathlib import Path
 import pandas as pd
 from seqbank import SeqBank
 from rich.progress import track
-from hierarchicalsoftmax.metrics import RankAccuracyTorchMetric
+from hierarchicalsoftmax.metrics import RankAccuracyTorchMetric, GreedyAccuracy
 from hierarchicalsoftmax.metrics import greedy_accuracy
 from torchmetrics import Metric
 
@@ -19,9 +19,13 @@ class Vanjari(Corgi):
     def metrics(self) -> list[tuple[str,Metric]]:
         rank_accuracy = RankAccuracyTorchMetric(
             root=self.classification_tree, 
-            ranks={1+i:f"rank_{i}" for i in range(11)},
+            ranks={1+i:f"rank_{i}" for i in range(9)},
         )
-        return [('species_accuracy', greedy_accuracy), ('rank_accuracy', rank_accuracy)]
+        return [('species_accuracy', GreedyAccuracy(root=self.classification_tree, name="species_accuracy")), ('rank_accuracy', rank_accuracy)]
+
+    @ta.method
+    def monitor(self) -> str:
+        return "species_accuracy"
 
     @ta.tool
     def max_depth(
