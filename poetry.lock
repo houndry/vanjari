@@ -1197,7 +1197,7 @@ numpy = ">=1.19.3"
 
 [[package]]
 name = "hierarchicalsoftmax"
-version = "1.2.1"
+version = "1.2.2"
 description = "A Hierarchical Softmax Framework for PyTorch."
 optional = false
 python-versions = "^3.10"
@@ -1215,7 +1215,7 @@ torchmetrics = ">=1.4.0.post0"
 type = "git"
 url = "https://github.com/rbturnbull/hierarchicalsoftmax.git"
 reference = "torchmetrics"
-resolved_reference = "7505b1fc91077a8eeb103702df80fdaff63ac397"
+resolved_reference = "72f603ecf9186966506dd1a93754430f245a7549"
 
 [[package]]
 name = "httpcore"
@@ -3243,7 +3243,7 @@ tornado = ["tornado (>=6)"]
 
 [[package]]
 name = "seqbank"
-version = "0.1.3"
+version = "0.1.4"
 description = "A database to quickly read and write DNA sequence data in numerical form."
 optional = false
 python-versions = ">=3.10,<3.13"
@@ -3269,7 +3269,7 @@ typer = ">=0.4.0"
 type = "git"
 url = "https://github.com/rbturnbull/seqbank.git"
 reference = "main"
-resolved_reference = "61d7a27b21f1edd44fabeebb9f82700c722031d4"
+resolved_reference = "27baa290441f20640a80f797cebb28a1cf202a3f"
 
 [[package]]
 name = "setproctitle"
