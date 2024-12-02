@@ -1,0 +1,26 @@
+[tool.poetry]
+name = "vanjari"
+version = "0.1.0"
+description = "Classification of viruses"
+authors = ["Robert Turnbull <robert.turnbull@unimelb.edu.au>"]
+license = "Apache-2.0"
+readme = "README.rst"
+
+[tool.poetry.dependencies]
+python = ">=3.10,<3.12"
+numpy = "<2.0.0"
+hierarchicalsoftmax = {git = "https://github.com/rbturnbull/hierarchicalsoftmax.git", branch="torchmetrics"}
+h5py = "^3.8.0"
+bio-corgi = {git = "https://github.com/rbturnbull/corgi.git", branch="lightning"}
+pyfastx = "^1.1.0"
+openpyxl = "^3.1.5"
+
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
+
+
+[tool.poetry.scripts]
+vanjari = "vanjari.apps:Vanjari.main"
+vanjari-tools = "vanjari.apps:Vanjari.tools"
