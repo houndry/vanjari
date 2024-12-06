@@ -5,6 +5,7 @@
  
 #SBATCH --ntasks=1
 #SBATCH --cpus-per-task=8
+#SBATCH --array=1-20%1
  
 # set your minimum acceptable walltime=days-hours:minutes:seconds
 # SBATCH -t 7-0:00:00
@@ -37,23 +38,22 @@ SEQBANK=/tmp/ictv.sb
 cp -r /home/rturnbull/wytamma/rob/virus/ictv.sb $SEQBANK
 SEQTREE=/home/rturnbull/wytamma/rob/virus/ictv.st
 
-LEARNING_RATE=0.001
 MACC=100000000000
 EPOCHS=100
 MAX_LENGTH=5000
 BATCH_SIZE=32
 VAL_LENGTH=2000
-RUN_NAME=vanjari-lr${LEARNING_RATE}m${MACC}e${EPOCHS}max${MAX_LENGTH}val${VAL_LENGTH}b${BATCH_SIZE}
+RUN_NAME=vanjari-tune-m${MACC}e${EPOCHS}max${MAX_LENGTH}val${VAL_LENGTH}b${BATCH_SIZE}
 
-vanjari-tools train         \
+vanjari-tools tune         \
+    --engine optuna \
+    --id $RUN_NAME \
     --seqtree $SEQTREE         \
     --seqbank $SEQBANK         \
-    --max-learning-rate $LEARNING_RATE         \
     --macc $MACC         \
     --max-epochs $EPOCHS \
-    --run-name $RUN_NAME \
     --test-partition -1 \
-    --batch-size $BATCH_SIZE
+    --batch-size $BATCH_SIZE \
     --validation-partition 0 \
     --project-name ICTV \
     --validation-length $VAL_LENGTH \
