@@ -80,7 +80,7 @@ class NucleotideTransformerEmbedding(DNAEmbedding):
             self.load()
 
         max_length = self.tokenizer.model_max_length
-        tokens_ids = self.tokenizer.batch_encode_plus([seq], return_tensors="pt", padding="max_length", max_length = max_length)["input_ids"]
+        tokens_ids = self.tokenizer.batch_encode_plus([seq[:max_length]], return_tensors="pt", padding="max_length", max_length = max_length)["input_ids"].to(self.device)
 
         # Compute the embeddings
         attention_mask = tokens_ids != self.tokenizer.pad_token_id
@@ -90,7 +90,6 @@ class NucleotideTransformerEmbedding(DNAEmbedding):
             encoder_attention_mask=attention_mask,
             output_hidden_states=True,
         )
+        embeddings = torch_outs['hidden_states'][-1].mean(dim=1)[0].cpu().detach()
 
-         breakpoint()
-
-        return torch_outs[0]
+        return embeddings

@@ -2,7 +2,7 @@ import random
 from rich.progress import track
 from torchapp.cli import tool
 
-from bloodhound.embeddings import Embedding
+from bloodhound.embedding import Embedding
 
 class DNAEmbedding(Embedding):
     @tool("setup")
