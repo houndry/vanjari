@@ -38,13 +38,14 @@ GROWTH=2
 LAYERS=2
 EMBEDDING=0
 LR=0.0001
-EPOCHS=20
+EPOCHS=60
 BATCH=16
 FEATURES=768
 FEATURES=1024
 #FEATURES=256
 ESM_LAYERS=6
 DROPOUT=0.4
+STACK=16
 #FEATURES=2048
 
 
@@ -52,9 +53,11 @@ DROPOUT=0.4
 #MODEL_NAME=NT
 #MODEL_NAME=checkpoint-66000
 
-LENGTH=500
-MODEL_NAME=checkpoint121000l${LENGTH}
+LENGTH=1000
+#MODEL_NAME=checkpoint121000l${LENGTH}
 MODEL_NAME=checkpoint66000l${LENGTH}
+MODEL_NAME=checkpoint-66000
+
 
 PREPROCESSED_DIR=/data/gpfs/projects/punim0111/CORGI_TERRIER/rob/${MODEL_NAME}
 MEMMAP=${PREPROCESSED_DIR}/${MODEL_NAME}.npy
@@ -68,7 +71,7 @@ fi
 SEQTREE=${PREPROCESSED_DIR}/${MODEL_NAME}.st
 
 
-vanjaristac-tools train  \
+vanjaristack-tools train  \
         --memmap  $MEMMAP \
         --memmap-index  ${MEMMAP_INDEX} \
         --seqtree  $SEQTREE \
@@ -76,13 +79,13 @@ vanjaristac-tools train  \
         --intermediate-layers $LAYERS \
         --growth-factor $GROWTH \
         --dropout $DROPOUT \
-        --family-embedding-size $EMBEDDING \
         --max-epochs $EPOCHS \
         --max-learning-rate $LR \
         --embedding-model ESM${ESM_LAYERS} \
+        --stack-size $STACK \
         --num-workers 2 \
-        --run-name VanjariNT-b${BATCH}f${FEATURES}l${LAYERS}g${GROWTH}e${EMBEDDING}lr${LR}ep${EPOCHS}d${DROPOUT}-${MODEL_NAME} \
-        --project-name VanjariNT \
+        --run-name VanjariStack-b${BATCH}f${FEATURES}l${LAYERS}g${GROWTH}lr${LR}ep${EPOCHS}d${DROPOUT}-${MODEL_NAME}s${STACK} \
+        --project-name VanjariStack \
         --wandb-entity   "mariadelmarq-The University of Melbourne" \
         --wandb 
 

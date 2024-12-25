@@ -19,6 +19,8 @@ from bloodhound.apps import Bloodhound
 from hierarchicalsoftmax import SoftmaxNode
 
 from .nucleotidetransformer import NucleotideTransformerEmbedding 
+from .data import VanjariStackDataModule
+from .models import VanjariAttentionModel
 
 class Vanjari(ta.TorchApp):
     @ta.method    
@@ -139,12 +141,14 @@ class VanjariNT(Vanjari, Bloodhound):
         output_dir:Path=ta.Param(default=..., help="A directory to store the output which includes the memmap array, the listing of accessions and an error log."),
         max_accessions:int=ta.Param(0, help="Maximum number of accessions to add"),
         fasta_dir:Path=ta.Param(..., help="Path to the FASTA directory"),
+        model_name:str="InstaDeepAI/nucleotide-transformer-v2-500m-multi-species",  
+        length:int=1000,      
     ):
         seqtree_path = Path(seqtree)
         fasta_dir = Path(fasta_dir)
 
         model = NucleotideTransformerEmbedding()
-        model.setup()
+        model.setup(model_name=model_name)
 
         df = self.taxonomy_df(max_accessions)
         taxonomic_columns = [
@@ -155,13 +159,12 @@ class VanjariNT(Vanjari, Bloodhound):
         ]
         root = SoftmaxNode(name="Virus", rank="Root")
         seqtree = SeqTree(root)
-        length = 1000
-
         
         print("Building classification tree")
-        # for _, row in track(df.iterrows(), total=len(df)):
+        # 
         index = 0
-        for _, row in df.iterrows():
+        # for _, row in df.iterrows():
+        for _, row in track(df.iterrows(), total=len(df)):
             genbank_accession = row['Virus GENBANK accession'].strip()
             if not genbank_accession:
                 continue
@@ -256,3 +259,61 @@ class VanjariNT(Vanjari, Bloodhound):
         # Save the SeqTree
         seqtree_path.parent.mkdir(parents=True, exist_ok=True)
         seqtree.save(seqtree_path)
+
+
+class VanjariStack(VanjariNT):
+    @ta.method    
+    def data(
+        self,
+        max_items:int=0,
+        num_workers:int=0,
+        stack_size:int=16,
+        validation_proportion:float = 0.2,
+    ) -> VanjariStackDataModule:
+        return VanjariStackDataModule(
+            array=self.array,
+            accession_to_array_index=self.accession_to_array_index,
+            seqtree=self.seqtree,
+            max_items=max_items,
+            num_workers=num_workers,
+            stack_size=stack_size,
+            validation_proportion=validation_proportion,
+        )
+
+    @ta.method
+    def model(
+        self,
+        features:int=1024,
+        intermediate_layers:int=2,
+        growth_factor:float=2.0,
+        dropout:float=0.0,
+    ) -> VanjariAttentionModel:
+        return VanjariAttentionModel(
+            classification_tree=self.classification_tree,
+            features=features,
+            intermediate_layers=intermediate_layers,
+            growth_factor=growth_factor,
+            dropout=dropout,
+        )
+    
+    @ta.method
+    def input_count(self) -> int:
+        return 1
+
+    # @method
+    # def extra_hyperparameters(self, embedding_model:str="", max_length:int=None) -> dict:
+    #     """ Extra hyperparameters to save with the module. """
+    #     assert embedding_model, f"Please provide an embedding model."
+    #     embedding_model = embedding_model.lower()
+    #     if embedding_model.startswith("esm"):
+    #         layers = embedding_model[3:].strip()
+    #         embedding_model = ESMEmbedding(max_length=max_length)
+    #         embedding_model.setup(layers=layers)
+    #     else:
+    #         raise ValueError(f"Cannot understand embedding model: {embedding_model}")
+
+    #     return dict(
+    #         embedding_model=embedding_model,
+    #         classification_tree=self.seqtree.classification_tree,
+    #         gene_id_dict=self.gene_id_dict,
+    #     )

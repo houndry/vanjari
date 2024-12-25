@@ -52,13 +52,15 @@ class NucleotideTransformerEmbedding(DNAEmbedding):
     @method
     def setup(
         self, 
+        model_name:str="InstaDeepAI/nucleotide-transformer-v2-500m-multi-species",
     ):
+        self.model_name = model_name
         self.model = None
         self.device = None
         self.tokenizer = None
 
     def __getstate__(self):
-        return dict(max_length=self.max_length, layers=str(self.layers))
+        return dict(max_length=self.max_length, model_name=str(self.model_name))
 
     def __setstate__(self, state):
         self.__init__()
@@ -70,9 +72,9 @@ class NucleotideTransformerEmbedding(DNAEmbedding):
         self.tokenizer = None
 
     def load(self):
-        self.tokenizer = AutoTokenizer.from_pretrained("InstaDeepAI/nucleotide-transformer-2.5b-multi-species")
+        self.tokenizer = AutoTokenizer.from_pretrained(self.model_name)
         self.device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
-        self.model = AutoModelForMaskedLM.from_pretrained("InstaDeepAI/nucleotide-transformer-2.5b-multi-species").to(self.device)
+        self.model = AutoModelForMaskedLM.from_pretrained(self.model_name, trust_remote_code=True).to(self.device)
 
     def embed(self, seq:str) -> torch.Tensor:
         """ Takes a DNA sequence as a string and returns an embedding tensor. """
