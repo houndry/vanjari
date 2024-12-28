@@ -329,6 +329,8 @@ class VanjariNT(Vanjari, Bloodhound):
 
         assert memmap_array_path is not None # hack
         if not memmap_array_path.exists() or not memmap_index.exists():
+            memmap_index.parent.mkdir(parents=True, exist_ok=True)
+            memmap_array = None
             with open(memmap_index, "w") as f: 
                 for file in files:
                     print(file)
@@ -347,6 +349,7 @@ class VanjariNT(Vanjari, Bloodhound):
                             
                             if memmap_array is None:
                                 shape = (count, len(embedding))
+                                memmap_array_path.parent.mkdir(parents=True, exist_ok=True)
                                 memmap_array = np.memmap(memmap_array_path, dtype=dtype, mode='w+', shape=shape)
 
                             memmap_array[index,:] = embedding.half().numpy()
@@ -419,6 +422,7 @@ class VanjariNT(Vanjari, Bloodhound):
 
         if output_csv:
             print(f"Writing inference results to: {output_csv}")
+            output_csv.parent.mkdir(parents=True, exist_ok=True)
             output_df.to_csv(output_csv, index=False)
 
         # Output images
