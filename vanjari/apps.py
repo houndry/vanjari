@@ -1,4 +1,5 @@
 import random
+import torch
 import torchapp as ta
 from corgi.apps import Corgi
 from corgi.seqtree import SeqTree
@@ -7,14 +8,21 @@ from pathlib import Path
 import pandas as pd
 from seqbank import SeqBank
 from rich.progress import track
+from dataclasses import dataclass
+from torch.utils.data import DataLoader
+
+
 from hierarchicalsoftmax.metrics import RankAccuracyTorchMetric, GreedyAccuracy
-from hierarchicalsoftmax.metrics import greedy_accuracy
+from hierarchicalsoftmax.inference import node_probabilities, greedy_predictions, render_probabilities
+
 from torchmetrics import Metric
 import numpy as np
+from torch.utils.data import Dataset
 import pyfastx
 
 from bloodhound.embedding import generate_overlapping_intervals
 from bloodhound.apps import Bloodhound
+from bloodhound.data import read_memmap
 
 from hierarchicalsoftmax import SoftmaxNode
 
@@ -131,6 +139,21 @@ class VanjariCorgi(Vanjari, Corgi):
         # Save the SeqTree
         seqtree_path.parent.mkdir(parents=True, exist_ok=True)
         seqtree.save(seqtree_path)
+
+
+@dataclass(kw_only=True)
+class VanjariNTPredictionDataset(Dataset):
+    array:np.memmap|np.ndarray
+
+    def __len__(self):
+        return len(self.array)
+
+    def __getitem__(self, array_index):
+        with torch.no_grad():
+            data = np.array(self.array[array_index, :], copy=False)
+            embedding = torch.tensor(data, dtype=torch.float16)
+            del data
+        return embedding
 
 
 class VanjariNT(Vanjari, Bloodhound):
@@ -260,6 +283,159 @@ class VanjariNT(Vanjari, Bloodhound):
         seqtree_path.parent.mkdir(parents=True, exist_ok=True)
         seqtree.save(seqtree_path)
 
+    @ta.method
+    def prediction_dataloader(
+        self,
+        module,
+        input:Path=ta.Param(help="A path to a directory of fasta files or a single fasta file."),
+        extension='fasta',
+        num_workers: int = 0,
+        memmap_array_path:Path=None, # TODO explain
+        memmap_index:Path=None, # TODO explain
+        batch_size:int = 16,
+        model_name:str="InstaDeepAI/nucleotide-transformer-v2-500m-multi-species",  # hack
+        length:int=1000, # hack
+    ) -> DataLoader:
+        # Get list of fasta files
+        files = []
+        input = Path(input)
+        if input.is_dir():
+            for path in input.rglob(f"*.{extension}"):
+                files.append(str(path))
+        else:
+            files.append(str(input))
+
+        # TODO get from module.hparams.embedding_model
+        embedding_model = NucleotideTransformerEmbedding()
+        embedding_model.setup(model_name=model_name)
+
+        # TODO GET length from module.hparams
+
+        dtype = 'float16'
+
+        # Get count of sequences
+        index = 0
+        for file in files:
+            # Read the sequence
+            for _, seq in pyfastx.Fasta(str(file), build_index=False):
+                seq = seq.replace("N","")
+                for ii, chunk in enumerate(range(0, len(seq), length)):
+                    # Add the sequence to the SeqTree
+                    index += 1
+        count = index
+
+        assert memmap_index is not None # hack
+        self.memmap_index = memmap_index
+
+        assert memmap_array_path is not None # hack
+        if not memmap_array_path.exists() or not memmap_index.exists():
+            with open(memmap_index, "w") as f: 
+                for file in files:
+                    print(file)
+                    for accession, seq in pyfastx.Fasta(str(file), build_index=False):
+                        seq = seq.replace("N","")
+                        for ii, chunk in enumerate(range(0, len(seq), length)):
+                            subseq = seq[chunk:chunk+length]
+
+                            key = f"{accession}:{ii}"
+
+                            try:
+                                embedding = embedding_model.embed(subseq)
+                            except Exception as err:
+                                print(f"{key}: {err}\n{subseq}")
+                                continue
+                            
+                            if memmap_array is None:
+                                shape = (count, len(embedding))
+                                memmap_array = np.memmap(memmap_array_path, dtype=dtype, mode='w+', shape=shape)
+
+                            memmap_array[index,:] = embedding.half().numpy()
+                            
+                            print(key, file=f)
+
+                            index += 1
+        else:
+            memmap_index_data = memmap_index.read_text().strip().split("\n")
+            count = len(memmap_index_data)
+            memmap_array = read_memmap(memmap_array_path, count, dtype)
+
+        dataset = VanjariNTPredictionDataset(array=memmap_array)
+        dataloader = DataLoader(dataset, batch_size=batch_size, num_workers=num_workers, shuffle=False)
+
+        return dataloader
+
+    @ta.method
+    def output_results(
+        self, 
+        results, 
+        output_csv: Path = ta.Param(default=None, help="A path to output the results as a CSV."),
+        image_dir: Path = ta.Param(default=None, help="A path to output the results as images."),
+        image_threshold:float = 0.005,
+        prediction_threshold:float = ta.Param(default=0.0, help="The threshold value for making hierarchical predictions."),
+        **kwargs,
+    ):
+        assert self.classification_tree
+
+        classification_probabilities = node_probabilities(results, root=self.classification_tree)
+        
+        category_names = [self.node_to_str(node) for node in self.classification_tree.node_list_softmax if not node.is_root]
+
+        results_df = pd.DataFrame(classification_probabilities.numpy(), columns=category_names)
+
+        # Average over chunks
+        results_df["original_index"] = results_df.index
+        keys = self.memmap_index.read_text().strip().split("\n")
+        results_df["SequenceID"] = [key.split(":")[0] for key in keys]
+        results_df = results_df.groupby(["SequenceID"]).mean().reset_index()
+
+        # sort to get original order
+        results_df = results_df.sort_values(by="original_index").drop(columns=["original_index"])
+        
+        classification_probabilities = torch.as_tensor(results_df[category_names].to_numpy()) 
+
+        # get greedy predictions which can use the raw activation or the softmax probabilities
+        predictions = greedy_predictions(
+            classification_probabilities, 
+            root=self.classification_tree, 
+            threshold=prediction_threshold,
+        )
+
+        # Sort out headers = 
+        header_string = "SequenceID,Realm (-viria),Realm_score,Subrealm (-vira),Subrealm_score,Kingdom (-virae),Kingdom_score,Subkingdom (-virites),Subkingdom_score,Phylum (-viricota),Phylum_score,Subphylum (-viricotina),Subphylum_score,Class (-viricetes),Class_score,Subclass (-viricetidae),Subclass_score,Order (-virales),Order_score,Suborder (-virineae),Suborder_score,Family (-viridae),Family_score,Subfamily (-virinae),Subfamily_score,Genus (-virus),Genus_score,Subgenus (-virus),Subgenus_score,Species (binomial),Species_score"
+        header_names = header_string.split(",")
+
+        rank_to_header = {header.split(" ")[0]:header for header in header_names[1::2]}
+
+        output_df = pd.DataFrame(columns=header_names)
+        output_df[:] = "NA"
+
+        for index, node in enumerate(predictions):
+            output_df.loc[index, "SequenceID"] = results_df.loc[index, "SequenceID"]
+
+            for ancestor in node.ancestors:
+                header = rank_to_header[ancestor.rank]
+                output_df.loc[index, header] = ancestor.name
+                output_df.loc[index, ancestor.rank+"_score"] = results_df.loc[index, ancestor.name]
+
+        if output_csv:
+            print(f"Writing inference results to: {output_csv}")
+            output_df.to_csv(output_csv, index=False)
+
+        # Output images
+        if image_dir:
+            print(f"Writing inference probability renders to: {image_dir}")
+            image_dir = Path(image_dir)
+            image_paths = [image_dir/f"{name}.png" for name in results_df["SequenceID"]]
+            render_probabilities(
+                root=self.classification_tree, 
+                filepaths=image_paths,
+                probabilities=classification_probabilities,
+                predictions=predictions,
+                threshold=image_threshold,
+            )
+
+        return output_df
+
 
 class VanjariStack(VanjariNT):
     @ta.method    
@@ -268,8 +444,15 @@ class VanjariStack(VanjariNT):
         max_items:int=0,
         num_workers:int=0,
         stack_size:int=16,
-        validation_proportion:float = 0.2,
+        validation_csv:Path=ta.Param(..., help="Path to the validation CSV file"),
     ) -> VanjariStackDataModule:
+        validation_df = pd.read_csv(validation_csv)
+        validation_accessions = set(validation_df['SequenceID'])
+        for accession, detail in self.seqtree.items():
+            if accession in validation_accessions:
+                detail['partition']
+
+
         return VanjariStackDataModule(
             array=self.array,
             accession_to_array_index=self.accession_to_array_index,
@@ -277,7 +460,7 @@ class VanjariStack(VanjariNT):
             max_items=max_items,
             num_workers=num_workers,
             stack_size=stack_size,
-            validation_proportion=validation_proportion,
+            validation_accessions=validation_accessions,
         )
 
     @ta.method
