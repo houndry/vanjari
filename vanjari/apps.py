@@ -10,6 +10,8 @@ from seqbank import SeqBank
 from rich.progress import track
 from dataclasses import dataclass
 from torch.utils.data import DataLoader
+from rich.progress import Progress
+
 
 
 from hierarchicalsoftmax.metrics import RankAccuracyTorchMetric, GreedyAccuracy
@@ -331,32 +333,35 @@ class VanjariNT(Vanjari, Bloodhound):
         if not memmap_array_path.exists() or not memmap_index.exists():
             memmap_index.parent.mkdir(parents=True, exist_ok=True)
             memmap_array = None
-            with open(memmap_index, "w") as f: 
-                for file in files:
-                    print(file)
-                    for accession, seq in pyfastx.Fasta(str(file), build_index=False):
-                        seq = seq.replace("N","")
-                        for ii, chunk in enumerate(range(0, len(seq), length)):
-                            subseq = seq[chunk:chunk+length]
+            with Progress() as progress:
+                task = progress.add_task("Processing...", total=count)
+                with open(memmap_index, "w") as f: 
+                    for file in files:
+                        print(file)
+                        for accession, seq in pyfastx.Fasta(str(file), build_index=False):
+                            seq = seq.replace("N","")
+                            for ii, chunk in enumerate(range(0, len(seq), length)):
+                                subseq = seq[chunk:chunk+length]
 
-                            key = f"{accession}:{ii}"
+                                key = f"{accession}:{ii}"
 
-                            try:
-                                embedding = embedding_model.embed(subseq)
-                            except Exception as err:
-                                print(f"{key}: {err}\n{subseq}")
-                                continue
-                            
-                            if memmap_array is None:
-                                shape = (count, len(embedding))
-                                memmap_array_path.parent.mkdir(parents=True, exist_ok=True)
-                                memmap_array = np.memmap(memmap_array_path, dtype=dtype, mode='w+', shape=shape)
+                                try:
+                                    embedding = embedding_model.embed(subseq)
+                                except Exception as err:
+                                    print(f"{key}: {err}\n{subseq}")
+                                    continue
+                                
+                                if memmap_array is None:
+                                    shape = (count, len(embedding))
+                                    memmap_array_path.parent.mkdir(parents=True, exist_ok=True)
+                                    memmap_array = np.memmap(memmap_array_path, dtype=dtype, mode='w+', shape=shape)
 
-                            memmap_array[index,:] = embedding.half().numpy()
-                            
-                            print(key, file=f)
+                                memmap_array[index,:] = embedding.half().numpy()
+                                
+                                print(key, file=f)
 
-                            index += 1
+                                index += 1
+                                progress.update(task, completed=index)
         else:
             memmap_index_data = memmap_index.read_text().strip().split("\n")
             count = len(memmap_index_data)
