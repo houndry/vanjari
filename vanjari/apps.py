@@ -32,6 +32,31 @@ from .models import VanjariAttentionModel
 from .metrics import ICTVTorchMetric
 
 class Vanjari(ta.TorchApp):
+    @ta.tool
+    def filter_memmap(
+        self, 
+        memmap_array_path:Path=None, # TODO explain
+        memmap_index:Path=None, # TODO explain
+        output_array_path:Path=None, # TODO explain
+        output_index:Path=None, # TODO explain
+        filter_csv:Path=ta.Param(..., help="Path to the filter CSV file"),
+    ):
+        filter_df = pd.read_csv(filter_csv)
+        filter_accessions = set(filter_df['SequenceID'])
+
+        memmap_index_data = memmap_index.read_text().strip().split("\n")
+        count = len(memmap_index_data)
+        memmap_array = read_memmap(memmap_array_path, count, dtype='float16')
+
+        new_accessions = [accession for accession in memmap_index_data if accession.split(":")[0] in filter_accessions]
+        new_count = len(new_accessions)
+        new_array = np.memmap(output_array_path, dtype='float16', mode='w+', shape=(new_count, memmap_array.shape[1]))
+        for ii, accession in enumerate(new_accessions):
+            index = memmap_index_data.index(accession)
+            new_array[ii,:] = memmap_array[index,:]
+        
+        output_index.write_text("\n".join(new_accessions))
+
     @ta.method    
     def metrics(self) -> list[tuple[str,Metric]]:
         return [
