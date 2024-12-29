@@ -160,6 +160,22 @@ class VanjariNTPredictionDataset(Dataset):
 
 class VanjariNT(Vanjari, Bloodhound):
     @ta.tool
+    def set_validation_partition(
+        self, 
+        seqtree:Path=ta.Param(..., help="Path to the SeqTree"),
+        validation_csv:Path=ta.Param(..., help="Path to the validation CSV file"),
+        output:Path=ta.Param(..., help="Path to save the SeqTree"),
+    ):
+        seqtree = SeqTree.load(Path(seqtree))
+        validation_df = pd.read_csv(validation_csv)
+        validation_accessions = set(validation_df['SequenceID'])
+        for accession, detail in seqtree.items():
+            detail.partition = 1 if accession.split(":")[0] in validation_accessions else 0
+        
+        output.parent.mkdir(parents=True, exist_ok=True)
+        seqtree.save(output)
+
+    @ta.tool
     def taxonomy_csv(
         self, 
         csv:Path=ta.Param(..., help="Path to save the CSV"), 
@@ -278,7 +294,6 @@ class VanjariNT(Vanjari, Bloodhound):
         print("count", count)
 
         dtype = 'float16'
-
 
         index = 0
         output_dir.mkdir(exist_ok=True, parents=True)
