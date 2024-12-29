@@ -537,14 +537,9 @@ class VanjariStack(VanjariNT):
         max_items:int=0,
         num_workers:int=0,
         stack_size:int=16,
-        validation_csv:Path=ta.Param(..., help="Path to the validation CSV file"),
+        validation_partition:int=0,
+        seed:int = 42,
     ) -> VanjariStackDataModule:
-        validation_df = pd.read_csv(validation_csv)
-        validation_accessions = set(validation_df['SequenceID'])
-        for accession, detail in self.seqtree.items():
-            if accession in validation_accessions:
-                detail['partition']
-
 
         return VanjariStackDataModule(
             array=self.array,
@@ -553,7 +548,8 @@ class VanjariStack(VanjariNT):
             max_items=max_items,
             num_workers=num_workers,
             stack_size=stack_size,
-            validation_accessions=validation_accessions,
+            seed=seed,
+            validation_partition=validation_partition,
         )
 
     @ta.method

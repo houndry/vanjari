@@ -63,7 +63,7 @@ class VanjariStackDataModule(L.LightningDataModule):
     num_workers: int = 0
     max_items:int = 0
     seed:int = 42
-    validation_proportion:float = 0.2
+    validation_partition:int=0
     stack_size:int = 16
 
     def __post_init__(self):
@@ -77,16 +77,19 @@ class VanjariStackDataModule(L.LightningDataModule):
 
         random.seed(self.seed)
 
+        current_list = None
+
         for accession, index in self.accession_to_array_index.items():
             species_accession = accession.split(":")[0]
             if current_accession != species_accession:
-                if current_accession:
-                    current_list = self.validation if random.random() < self.validation_proportion else self.training
+                if current_list:
                     current_list.append(Species(accession=current_accession, index=start_index, count=index-start_index))
                 current_accession = species_accession
                 start_index = index
+
+                detail = self.seqtree[current_accession]
+                current_list = self.validation if detail.partition == self.validation_partition else self.training
         
-        current_list = self.validation if random.random() < self.validation_proportion else self.training
         current_list.append(Species(accession=current_accession, index=start_index, count=index-start_index))
 
         self.train_dataset = self.create_dataset(self.training, deterministic=False)
