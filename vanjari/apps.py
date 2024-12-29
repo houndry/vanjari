@@ -155,7 +155,7 @@ class VanjariNTPredictionDataset(Dataset):
             data = np.array(self.array[array_index, :], copy=False)
             embedding = torch.tensor(data, dtype=torch.float16)
             del data
-        return embedding
+        return embedding, 0 # .unsqueeze(dim=0)
 
 
 class VanjariNT(Vanjari, Bloodhound):
@@ -307,6 +307,8 @@ class VanjariNT(Vanjari, Bloodhound):
         else:
             files.append(str(input))
 
+        self.classification_tree = module.hparams.classification_tree
+
         # TODO get from module.hparams.embedding_model
         embedding_model = NucleotideTransformerEmbedding()
         embedding_model.setup(model_name=model_name)
@@ -329,6 +331,7 @@ class VanjariNT(Vanjari, Bloodhound):
         assert memmap_index is not None # hack
         self.memmap_index = memmap_index
 
+        index = 0
         assert memmap_array_path is not None # hack
         if not memmap_array_path.exists() or not memmap_index.exists():
             memmap_index.parent.mkdir(parents=True, exist_ok=True)
@@ -367,6 +370,11 @@ class VanjariNT(Vanjari, Bloodhound):
             count = len(memmap_index_data)
             memmap_array = read_memmap(memmap_array_path, count, dtype)
 
+        # def collate_fn(batch):
+        #     breakpoint()
+        #     batch = torch.stack(batch)
+        #     return batch
+
         dataset = VanjariNTPredictionDataset(array=memmap_array)
         dataloader = DataLoader(dataset, batch_size=batch_size, num_workers=num_workers, shuffle=False)
 
@@ -377,11 +385,12 @@ class VanjariNT(Vanjari, Bloodhound):
         self, 
         results, 
         output_csv: Path = ta.Param(default=None, help="A path to output the results as a CSV."),
+        probability_csv: Path = ta.Param(default=None, help="A path to output the probabilities as a CSV."),
         image_dir: Path = ta.Param(default=None, help="A path to output the results as images."),
         image_threshold:float = 0.005,
         prediction_threshold:float = ta.Param(default=0.0, help="The threshold value for making hierarchical predictions."),
         **kwargs,
-    ):
+    ):        
         assert self.classification_tree
 
         classification_probabilities = node_probabilities(results, root=self.classification_tree)
@@ -397,7 +406,12 @@ class VanjariNT(Vanjari, Bloodhound):
         results_df = results_df.groupby(["SequenceID"]).mean().reset_index()
 
         # sort to get original order
-        results_df = results_df.sort_values(by="original_index").drop(columns=["original_index"])
+        results_df = results_df.sort_values(by="original_index").drop(columns=["original_index"]).reset_index()
+
+        if probability_csv:
+            probability_csv.parent.mkdir(parents=True, exist_ok=True)
+            print(f"Writing probabilities to {probability_csv}")
+            results_df.to_csv(probability_csv, index=False)
         
         classification_probabilities = torch.as_tensor(results_df[category_names].to_numpy()) 
 
@@ -419,11 +433,15 @@ class VanjariNT(Vanjari, Bloodhound):
 
         for index, node in enumerate(predictions):
             output_df.loc[index, "SequenceID"] = results_df.loc[index, "SequenceID"]
-
-            for ancestor in node.ancestors:
+            current_probability = 1.0
+            for ancestor in node.ancestors[1:] + (node,):
                 header = rank_to_header[ancestor.rank]
                 output_df.loc[index, header] = ancestor.name
-                output_df.loc[index, ancestor.rank+"_score"] = results_df.loc[index, ancestor.name]
+                
+                if ancestor.name in results_df.columns:
+                    current_probability = results_df.loc[index, ancestor.name]
+
+                output_df.loc[index, ancestor.rank+"_score"] = current_probability                    
 
         if output_csv:
             print(f"Writing inference results to: {output_csv}")
