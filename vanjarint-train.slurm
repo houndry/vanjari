@@ -7,7 +7,7 @@
 #SBATCH --cpus-per-task=8
  
 # set your minimum acceptable walltime=days-hours:minutes:seconds
-#SBATCH -t 3:00:00
+#SBATCH -t 5:00:00
 # SBATCH -t 8-0:00:00
  
 #SBATCH --mem-per-cpu=12G
@@ -52,9 +52,10 @@ DROPOUT=0.4
 #MODEL_NAME=NT
 #MODEL_NAME=checkpoint-66000
 
-LENGTH=500
+LENGTH=1000
 MODEL_NAME=checkpoint121000l${LENGTH}
-MODEL_NAME=checkpoint66000l${LENGTH}
+#MODEL_NAME=checkpoint66000l${LENGTH}
+
 
 PREPROCESSED_DIR=/data/gpfs/projects/punim0111/CORGI_TERRIER/rob/${MODEL_NAME}
 MEMMAP=${PREPROCESSED_DIR}/${MODEL_NAME}.npy
@@ -68,7 +69,7 @@ fi
 SEQTREE=${PREPROCESSED_DIR}/${MODEL_NAME}.st
 
 
-vanjaristac-tools train  \
+vanjarint-tools train  \
         --memmap  $MEMMAP \
         --memmap-index  ${MEMMAP_INDEX} \
         --seqtree  $SEQTREE \

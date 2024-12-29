@@ -1,19 +1,20 @@
 #!/bin/bash
  
 # To give your job a name, replace "MyJob" with an appropriate name
-#SBATCH --job-name=vanjara
+#SBATCH --job-name=vanjari-preprocess500
  
 #SBATCH --ntasks=1
 #SBATCH --cpus-per-task=8
  
 # set your minimum acceptable walltime=days-hours:minutes:seconds
 # SBATCH -t 7-0:00:00
-#SBATCH -t 3-0:00:00
+#SBATCH -t 4-0:00:00
  
 #SBATCH --mem-per-cpu=12G
  
 # SBATCH -p cascade
-#SBATCH -p gpu-h100,gpu-a100
+# SBATCH -p gpu-h100,gpu-a100
+#SBATCH -p gpu-h100
 # SBATCH -p gpu-a100-short,gpu-a100,gpu-a100-preempt
 # SBATCH -p gpu-a100-short,gpu-a100
 # SBATCH -p gpu-a100-short
@@ -36,16 +37,16 @@ source .venv/bin/activate
 LENGTH=500
 #LENGTH=1000
 
-NAME=checkpoint121000l${LENGTH}
+MODEL_NAME=checkpoint182000l${LENGTH}
 
-SEQTREE=../$NAME/${NAME}.st
+SEQTREE=../$MODEL_NAME/${MODEL_NAME}.st
 
 #CHECKPOINT=/data/gpfs/projects/punim0111/CORGI_TERRIER/nt/
-CHECKPOINT=/data/gpfs/projects/punim0111/CORGI_TERRIER/checkpoint-121000/
+CHECKPOINT=/data/gpfs/projects/punim0111/CORGI_TERRIER/checkpoint-182000/
 
 vanjarint-tools preprocess         \
     --seqtree $SEQTREE         \
-    --output-dir ../$NAME \
+    --output-dir ../$MODEL_NAME \
     --fasta-dir ../all_fastas/ \
     --length $LENGTH \
     --model-name $CHECKPOINT

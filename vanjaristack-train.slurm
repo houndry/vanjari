@@ -7,7 +7,7 @@
 #SBATCH --cpus-per-task=8
  
 # set your minimum acceptable walltime=days-hours:minutes:seconds
-#SBATCH -t 3:00:00
+#SBATCH -t 8:00:00
 # SBATCH -t 8-0:00:00
  
 #SBATCH --mem-per-cpu=12G
@@ -38,7 +38,7 @@ GROWTH=2
 LAYERS=2
 EMBEDDING=0
 LR=0.0001
-EPOCHS=60
+EPOCHS=20
 BATCH=16
 FEATURES=768
 FEATURES=1024
@@ -57,6 +57,7 @@ LENGTH=1000
 #MODEL_NAME=checkpoint121000l${LENGTH}
 MODEL_NAME=checkpoint66000l${LENGTH}
 MODEL_NAME=checkpoint-66000
+MODEL_NAME=checkpoint121000l${LENGTH}
 
 
 PREPROCESSED_DIR=/data/gpfs/projects/punim0111/CORGI_TERRIER/rob/${MODEL_NAME}
