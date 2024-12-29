@@ -12,8 +12,6 @@ from dataclasses import dataclass
 from torch.utils.data import DataLoader
 from rich.progress import Progress
 
-
-
 from hierarchicalsoftmax.metrics import RankAccuracyTorchMetric, GreedyAccuracy
 from hierarchicalsoftmax.inference import node_probabilities, greedy_predictions, render_probabilities
 
@@ -31,19 +29,19 @@ from hierarchicalsoftmax import SoftmaxNode
 from .nucleotidetransformer import NucleotideTransformerEmbedding 
 from .data import VanjariStackDataModule
 from .models import VanjariAttentionModel
+from .metrics import ICTVTorchMetric
 
 class Vanjari(ta.TorchApp):
     @ta.method    
     def metrics(self) -> list[tuple[str,Metric]]:
-        rank_accuracy = RankAccuracyTorchMetric(
-            root=self.classification_tree, 
-            ranks={1+i:f"rank_{i}" for i in range(9)},
-        )
-        return [('species_accuracy', GreedyAccuracy(root=self.classification_tree, name="species_accuracy")), ('rank_accuracy', rank_accuracy)]
+        return [
+            # ('species_accuracy', GreedyAccuracy(root=self.classification_tree, name="species_accuracy")), 
+            ('rank_accuracy', ICTVTorchMetric(root=self.classification_tree)),
+        ]
 
     @ta.method
     def monitor(self) -> str:
-        return "species_accuracy"
+        return "Genus"
 
     @ta.tool
     def max_depth(
@@ -170,7 +168,7 @@ class VanjariNT(Vanjari, Bloodhound):
         validation_df = pd.read_csv(validation_csv)
         validation_accessions = set(validation_df['SequenceID'])
         for accession, detail in seqtree.items():
-            detail.partition = 1 if accession.split(":")[0] in validation_accessions else 0
+            detail.partition = 0 if accession.split(":")[0] in validation_accessions else 1
         
         output.parent.mkdir(parents=True, exist_ok=True)
         seqtree.save(output)
@@ -442,11 +440,6 @@ class VanjariNT(Vanjari, Bloodhound):
             memmap_index_data = memmap_index.read_text().strip().split("\n")
             count = len(memmap_index_data)
             memmap_array = read_memmap(memmap_array_path, count, dtype)
-
-        # def collate_fn(batch):
-        #     breakpoint()
-        #     batch = torch.stack(batch)
-        #     return batch
 
         dataset = VanjariNTPredictionDataset(array=memmap_array)
         dataloader = DataLoader(dataset, batch_size=batch_size, num_workers=num_workers, shuffle=False)
