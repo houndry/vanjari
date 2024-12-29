@@ -160,6 +160,64 @@ class VanjariNTPredictionDataset(Dataset):
 
 class VanjariNT(Vanjari, Bloodhound):
     @ta.tool
+    def taxonomy_csv(
+        self, 
+        csv:Path=ta.Param(..., help="Path to save the CSV"), 
+        filter:Path=ta.Param(None, help="Path with accessions to use as a filter"),
+    ):
+        header_string = "SequenceID,Realm (-viria),Realm_score,Subrealm (-vira),Subrealm_score,Kingdom (-virae),Kingdom_score,Subkingdom (-virites),Subkingdom_score,Phylum (-viricota),Phylum_score,Subphylum (-viricotina),Subphylum_score,Class (-viricetes),Class_score,Subclass (-viricetidae),Subclass_score,Order (-virales),Order_score,Suborder (-virineae),Suborder_score,Family (-viridae),Family_score,Subfamily (-virinae),Subfamily_score,Genus (-virus),Genus_score,Subgenus (-virus),Subgenus_score,Species (binomial),Species_score"        
+        header_names = header_string.split(",")
+
+        rank_to_header = {header.split(" ")[0]:header for header in header_names[1::2]}
+
+        if filter:
+            filter = set(Path(filter).read_text().strip().split("\n"))
+
+        df = self.taxonomy_df()
+        taxonomic_columns = [
+            'Realm', 'Subrealm',
+            'Kingdom', 'Subkingdom', 'Phylum', 'Subphylum', 'Class', 'Subclass',
+            'Order', 'Suborder', 'Family', 'Subfamily', 'Genus', 'Subgenus',
+            'Species',
+        ]
+        
+        data = []
+        # for _, row in df.iterrows():
+        for _, row in track(df.iterrows(), total=len(df)):            
+            genbank_accession = row['Virus GENBANK accession'].strip()
+            if not genbank_accession:
+                continue
+
+            accessions = genbank_accession.split(";")
+            for accession in accessions:
+                accession = accession.strip()
+                if ":" in accession:
+                    accession = accession.split(":")[1].strip()
+                accession = accession.split(" ")[0]
+
+                if filter and accession not in filter:
+                    continue
+
+                insert_row = dict(SequenceID=accession)
+                for rank in taxonomic_columns:
+                    value = row[rank]
+                    score = 1.0
+                    if not value:
+                        value = "NA"
+                        score = "NA"
+
+                    insert_row[rank_to_header[rank]] = value
+                    insert_row[rank+"_score"] = score
+
+                data.append(insert_row)
+
+        output_df = pd.DataFrame(data, columns=header_names)
+
+        csv.parent.mkdir(parents=True, exist_ok=True)
+        print(f"Writing taxonomy to {csv}")
+        output_df.to_csv(csv, index=False)
+
+    @ta.tool
     def preprocess(
         self, 
         seqtree:Path=ta.Param(..., help="Path to save the SeqTree"), 
