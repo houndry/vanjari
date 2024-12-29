@@ -32,6 +32,7 @@ class VanjariStackTrainingDataset(Dataset):
     seqtree: SeqTree
     array:np.memmap|np.ndarray
     stack_size:int = 16
+    deterministic:bool = False
 
     def __len__(self):
         return len(self.species)
@@ -39,7 +40,7 @@ class VanjariStackTrainingDataset(Dataset):
     def __getitem__(self, idx):
         species = self.species[idx]
         stack_size = min(self.stack_size, species.count)
-        array_index = species.index + random.randint(0, species.count-stack_size)
+        array_index = (species.count-stack_size) //2 if self.deterministic else species.index + random.randint(0, species.count-stack_size)
 
         with torch.no_grad():
             data = np.array(self.array[array_index:array_index+stack_size, :], copy=False)
@@ -88,23 +89,22 @@ class VanjariStackDataModule(L.LightningDataModule):
         current_list = self.validation if random.random() < self.validation_proportion else self.training
         current_list.append(Species(accession=current_accession, index=start_index, count=index-start_index))
 
-        self.train_dataset = self.create_dataset(self.training)
-        self.val_dataset = self.create_dataset(self.validation)
+        self.train_dataset = self.create_dataset(self.training, deterministic=False)
+        self.val_dataset = self.create_dataset(self.validation, deterministic=True)
 
-    def create_dataset(self, species:list[Species]) -> VanjariStackTrainingDataset:
+    def create_dataset(self, species:list[Species], deterministic:bool) -> VanjariStackTrainingDataset:
         return VanjariStackTrainingDataset(
             species=species,
             seqtree=self.seqtree, 
             array=self.array,
             stack_size=self.stack_size,
+            deterministic=deterministic,
         )
     
     def train_dataloader(self):
-        print('train dataloader', self.num_workers)
         return DataLoader(self.train_dataset, batch_size=self.batch_size, num_workers=self.num_workers, shuffle=True)
 
     def val_dataloader(self):
-        print('val_dataloader', self.num_workers)
         return DataLoader(self.val_dataset, batch_size=self.batch_size, num_workers=self.num_workers, shuffle=False)
 
 
