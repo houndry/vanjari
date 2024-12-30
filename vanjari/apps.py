@@ -29,9 +29,48 @@ from hierarchicalsoftmax import SoftmaxNode
 from .nucleotidetransformer import NucleotideTransformerEmbedding 
 from .data import VanjariStackDataModule
 from .models import VanjariAttentionModel
-from .metrics import ICTVTorchMetric
+from .metrics import ICTVTorchMetric, RANKS
 
 class Vanjari(ta.TorchApp):
+    @ta.tool
+    def evaluate_csv(
+        self, 
+        prediction:Path=None, # TODO explain
+        truth:Path=None, # TODO explain
+        stem_only:bool=True, # TODO explain
+    ):
+        prediction_df = pd.read_csv(prediction)
+        truth_df = pd.read_csv(truth)
+
+        if stem_only:
+            prediction_df['SequenceID'] = prediction_df['SequenceID'].apply(lambda x: x.split(".")[0])
+            truth_df['SequenceID'] = truth_df['SequenceID'].apply(lambda x: x.split(".")[0])
+
+        intersection = set(truth_df['SequenceID']) & set(prediction_df['SequenceID'])
+        missing = set(truth_df['SequenceID']) - intersection
+
+        print(f"Missing: {len(missing)}")
+
+        truth_df = truth_df[truth_df['SequenceID'].isin(intersection)]
+        prediction_df = prediction_df[prediction_df['SequenceID'].isin(intersection)]
+
+        # sort
+        prediction_df = prediction_df.sort_values(by="SequenceID").reset_index(drop=True)
+        truth_df = truth_df.sort_values(by="SequenceID").reset_index(drop=True)
+
+        assert all(prediction_df['SequenceID'] == truth_df['SequenceID'])
+
+        header_string = "SequenceID,Realm (-viria),Realm_score,Subrealm (-vira),Subrealm_score,Kingdom (-virae),Kingdom_score,Subkingdom (-virites),Subkingdom_score,Phylum (-viricota),Phylum_score,Subphylum (-viricotina),Subphylum_score,Class (-viricetes),Class_score,Subclass (-viricetidae),Subclass_score,Order (-virales),Order_score,Suborder (-virineae),Suborder_score,Family (-viridae),Family_score,Subfamily (-virinae),Subfamily_score,Genus (-virus),Genus_score,Subgenus (-virus),Subgenus_score,Species (binomial),Species_score"        
+        header_names = header_string.split(",")
+
+        rank_to_header = {header.split(" ")[0]:header for header in header_names[1::2]}
+
+        for rank in RANKS:
+            column = rank_to_header[rank]
+            data_available = (prediction_df[column] != "NA") & (truth_df[column] != "NA")
+            result = (prediction_df[column][data_available] == truth_df[column][data_available]).mean()
+            print( rank, result*100 )
+
     @ta.tool
     def filter_memmap(
         self, 
