@@ -8,26 +8,19 @@ from pathlib import Path
 import pandas as pd
 from seqbank import SeqBank
 from rich.progress import track
-from dataclasses import dataclass
 from torch.utils.data import DataLoader
-from rich.progress import Progress
-
-from hierarchicalsoftmax.metrics import RankAccuracyTorchMetric, GreedyAccuracy
 from hierarchicalsoftmax.inference import node_probabilities, greedy_predictions, render_probabilities
-
 from torchmetrics import Metric
 import numpy as np
-from torch.utils.data import Dataset
 import pyfastx
 
-from bloodhound.embedding import generate_overlapping_intervals
 from bloodhound.apps import Bloodhound
 from bloodhound.data import read_memmap
 
 from hierarchicalsoftmax import SoftmaxNode
 
 from .nucleotidetransformer import NucleotideTransformerEmbedding 
-from .data import VanjariStackDataModule
+from .data import VanjariStackDataModule, VanjariNTPredictionDataset, build_memmap_array, Stack, VanjariStackPredictionDataset
 from .models import VanjariAttentionModel
 from .metrics import ICTVTorchMetric, RANKS
 
@@ -301,21 +294,6 @@ class VanjariCorgi(Vanjari, Corgi):
         return output_df
 
 
-@dataclass(kw_only=True)
-class VanjariNTPredictionDataset(Dataset):
-    array:np.memmap|np.ndarray
-
-    def __len__(self):
-        return len(self.array)
-
-    def __getitem__(self, array_index):
-        with torch.no_grad():
-            data = np.array(self.array[array_index, :], copy=False)
-            embedding = torch.tensor(data, dtype=torch.float16)
-            del data
-        return embedding, 0 # .unsqueeze(dim=0)
-
-
 class VanjariNT(Vanjari, Bloodhound):
     @ta.tool
     def set_validation_partition(
@@ -517,91 +495,36 @@ class VanjariNT(Vanjari, Bloodhound):
         seqtree.save(seqtree_path)
 
     @ta.method
+    def build_dataset_sequence_ids(self, memmap_array, accessions, **kwargs):
+        sequence_ids = [accession.split(":")[0] for accession in accessions]
+        dataset = VanjariNTPredictionDataset(array=memmap_array)
+        return dataset, sequence_ids
+
+    @ta.method("build_dataset_sequence_ids")
     def prediction_dataloader(
         self,
         module,
         input:Path=ta.Param(help="A path to a directory of fasta files or a single fasta file."),
         extension='fasta',
-        num_workers: int = 0,
         memmap_array_path:Path=None, # TODO explain
         memmap_index:Path=None, # TODO explain
-        batch_size:int = 16,
         model_name:str="InstaDeepAI/nucleotide-transformer-v2-500m-multi-species",  # hack
         length:int=1000, # hack
+        batch_size:int = 16,
+        num_workers: int = 0,
     ) -> DataLoader:
-        # Get list of fasta files
-        files = []
-        input = Path(input)
-        if input.is_dir():
-            for path in input.rglob(f"*.{extension}"):
-                files.append(str(path))
-        else:
-            files.append(str(input))
 
         self.classification_tree = module.hparams.classification_tree
 
-        # TODO get from module.hparams.embedding_model
-        embedding_model = NucleotideTransformerEmbedding()
-        embedding_model.setup(model_name=model_name)
-
-        # TODO GET length from module.hparams
-
-        dtype = 'float16'
-
-        # Get count of sequences
-        index = 0
-        for file in files:
-            # Read the sequence
-            for _, seq in pyfastx.Fasta(str(file), build_index=False):
-                seq = seq.replace("N","")
-                for ii, chunk in enumerate(range(0, len(seq), length)):
-                    # Add the sequence to the SeqTree
-                    index += 1
-        count = index
-
-        assert memmap_index is not None # hack
-        self.memmap_index = memmap_index
-
-        index = 0
-        assert memmap_array_path is not None # hack
-        if not memmap_array_path.exists() or not memmap_index.exists():
-            memmap_index.parent.mkdir(parents=True, exist_ok=True)
-            memmap_array = None
-            with Progress() as progress:
-                task = progress.add_task("Processing...", total=count)
-                with open(memmap_index, "w") as f: 
-                    for file in files:
-                        print(file)
-                        for accession, seq in pyfastx.Fasta(str(file), build_index=False):
-                            seq = seq.replace("N","")
-                            for ii, chunk in enumerate(range(0, len(seq), length)):
-                                subseq = seq[chunk:chunk+length]
-
-                                key = f"{accession}:{ii}"
-
-                                try:
-                                    embedding = embedding_model.embed(subseq)
-                                except Exception as err:
-                                    print(f"{key}: {err}\n{subseq}")
-                                    continue
-                                
-                                if memmap_array is None:
-                                    shape = (count, len(embedding))
-                                    memmap_array_path.parent.mkdir(parents=True, exist_ok=True)
-                                    memmap_array = np.memmap(memmap_array_path, dtype=dtype, mode='w+', shape=shape)
-
-                                memmap_array[index,:] = embedding.half().numpy()
-                                
-                                print(key, file=f)
-
-                                index += 1
-                                progress.update(task, completed=index)
-        else:
-            memmap_index_data = memmap_index.read_text().strip().split("\n")
-            count = len(memmap_index_data)
-            memmap_array = read_memmap(memmap_array_path, count, dtype)
-
-        dataset = VanjariNTPredictionDataset(array=memmap_array)
+        memmap_array, accessions = build_memmap_array(
+            input=input,
+            extension=extension,
+            memmap_array_path=memmap_array_path,
+            memmap_index=memmap_index,
+            model_name=model_name,
+            length=length,
+        )
+        dataset, self.sequence_ids = self.build_dataset_sequence_ids(memmap_array, accessions)
         dataloader = DataLoader(dataset, batch_size=batch_size, num_workers=num_workers, shuffle=False)
 
         return dataloader
@@ -627,8 +550,7 @@ class VanjariNT(Vanjari, Bloodhound):
 
         # Average over chunks
         results_df["original_index"] = results_df.index
-        keys = self.memmap_index.read_text().strip().split("\n")
-        results_df["SequenceID"] = [key.split(":")[0] for key in keys]
+        results_df["SequenceID"] = self.sequence_ids
         results_df = results_df.groupby(["SequenceID"]).mean().reset_index()
 
         # sort to get original order
@@ -765,6 +687,34 @@ class VanjariStack(VanjariNT):
     @ta.method
     def input_count(self) -> int:
         return 1
+
+    @ta.method
+    def build_dataset_sequence_ids(self, memmap_array, accessions, stack_size:int=16, **kwargs):
+        sequence_ids = []
+        stacks = []
+        current_species = None
+        current_stack_start = None
+        for index, accession in enumerate(accessions):
+            species_accession = accession.split(":")[0]
+            if current_stack_start is None:
+                current_stack_start = index
+
+            if current_species is None:
+                current_species = species_accession
+
+            # Create new stack if we have a new species or if we get to the stack size
+            if current_species != species_accession or len(index-current_stack_start) >= stack_size:
+                stacks.append(Stack(start=current_stack_start, end=index))
+                sequence_ids.append(species_accession)
+                current_stack_start = index
+                current_species = species_accession
+
+        # Create a new stack at the end of the loop
+        stacks.append(Stack(start=current_stack_start, end=index))
+        sequence_ids.append(species_accession)
+
+        dataset = VanjariStackPredictionDataset(array=memmap_array, stacks=stacks)
+        return dataset, sequence_ids
 
     # @method
     # def extra_hyperparameters(self, embedding_model:str="", max_length:int=None) -> dict:
