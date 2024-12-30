@@ -217,6 +217,7 @@ class VanjariCorgi(Vanjari, Corgi):
         self,
         results,
         output_csv: Path = ta.Param(default=None, help="A path to output the results as a CSV."),
+        probability_csv: Path = ta.Param(default=None, help="A path to output the probabilities as a CSV."),
         image_dir: Path = ta.Param(default=None, help="A directory to output the results as images."),
         image_threshold:float = 0.005,
         prediction_threshold:float = ta.Param(default=0.5, help="The threshold value for making hierarchical predictions."),
@@ -239,7 +240,7 @@ class VanjariCorgi(Vanjari, Corgi):
         results_df = results_df.groupby(["file", "original_id"]).mean().reset_index()
 
         # sort to get original order
-        results_df = results_df.sort_values(by="chunk_index").drop(columns=["chunk_index"])
+        results_df = results_df.sort_values(by="chunk_index").drop(columns=["chunk_index"]).reset_index()
         
         # Get new tensors now that we've averaged over chunks
         classification_probabilities = torch.as_tensor(results_df[category_names].to_numpy()) 
@@ -714,10 +715,43 @@ class VanjariStack(VanjariNT):
     @ta.method
     def model(
         self,
-        features:int=1024,
-        intermediate_layers:int=2,
-        growth_factor:float=2.0,
-        dropout:float=0.0,
+        features:int=ta.Param(
+            default=1024,
+            help="The size of the initial layer after the embedding.",
+            tune=True,
+            log=True,
+            tune_min=256,
+            tune_max=4096,
+        ),
+        intermediate_layers:int=ta.Param(
+            default=2,
+            help="The number of intermediate layers.",
+            tune=True,
+            tune_min=0,
+            tune_max=4,
+        ),
+        growth_factor:float=ta.Param(
+            default=2.0,
+            help="The factor to multiply the initial layers.",
+            tune=True,
+            tune_min=1.0,
+            tune_max=3.0,
+        ),
+        dropout:float=ta.Param(
+            default=0.0,
+            help="The amount of dropout.",
+            tune=True,
+            tune_min=0.0,
+            tune_max=0.8,
+        ),
+        attention_hidden_size:int=ta.Param(
+            default=512,
+            help="The size of the initial layer after the embedding.",
+            tune=True,
+            log=True,
+            tune_min=256,
+            tune_max=2048,
+        ),
     ) -> VanjariAttentionModel:
         return VanjariAttentionModel(
             classification_tree=self.classification_tree,
@@ -725,6 +759,7 @@ class VanjariStack(VanjariNT):
             intermediate_layers=intermediate_layers,
             growth_factor=growth_factor,
             dropout=dropout,
+            attention_hidden_size=attention_hidden_size,
         )
     
     @ta.method
