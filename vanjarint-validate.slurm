@@ -4,16 +4,16 @@
 #SBATCH --job-name=vanjari-predict
  
 #SBATCH --ntasks=1
-#SBATCH --cpus-per-task=1
+#SBATCH --cpus-per-task=8
  
 # set your minimum acceptable walltime=days-hours:minutes:seconds
 # SBATCH -t 5:00:00
 #SBATCH -t 3-0:00:00
  
-#SBATCH --mem-per-cpu=320G
+#SBATCH --mem-per-cpu=12G
  
 # SBATCH -p cascade
-#SBATCH -p gpu-h100,gpu-a100-short,gpu-a100
+#SBATCH -p gpu-h100
 # SBATCH -p gpu-a100-short,gpu-a100,gpu-a100-preempt
 # SBATCH -p gpu-a100-short,gpu-a100
 # SBATCH -p gpu-a100-short
@@ -38,21 +38,21 @@ export HF_HOME=/home/rturnbull/wytamma/huggingface
 
 EMBEDDING_MODEL=/data/gpfs/projects/punim0111/CORGI_TERRIER/checkpoint-182000/
 
-CHECKPOINT=/data/gpfs/projects/punim0111/CORGI_TERRIER/rob/vanjarint/logs/VanjariNT-b16f1024l2g2e0lr0.0001ep20d0.4-checkpoint121000l1000/version_0/checkpoints/checkpoint-epoch\=17-species_accuracy\=0.21.ckpt
 CHECKPOINT=/data/gpfs/projects/punim0111/CORGI_TERRIER/rob/vanjarint/logs/VanjariNT-b16f1024l2g2e0lr0.0001ep20d0.4-checkpoint182000l1000-val/version_1/checkpoints/checkpoint-epoch\=17-species_accuracy\=0.041.ckpt
 
-FASTA_DIR=/data/gpfs/projects/punim0111/CORGI_TERRIER/rob/ICTV-TaxonomyChallenge/dataset/dataset_challenge
-#FASTA_DIR=/data/gpfs/projects/punim0111/CORGI_TERRIER/rob/ICTV-TaxonomyChallenge/dataset/dataset_challenge_tiny
+
+FASTA_DIR=/data/gpfs/projects/punim0111/CORGI_TERRIER/rob/validation_fastas
 LENGTH=1000
 #LENGTH=500
 vanjarint-tools predict \
     --input ${FASTA_DIR} \
     --model-name $EMBEDDING_MODEL \
     --checkpoint $CHECKPOINT \
+    --extension "fasta.gz" \
     --memmap-array-path ${FASTA_DIR}/embeddings/checkpoint-182000-l${LENGTH}.npy \
     --memmap-index ${FASTA_DIR}/embeddings/checkpoint-182000-l${LENGTH}.txt \
     --length $LENGTH \
-    --output-csv ${FASTA_DIR}/predictions/VanjariNT-b16f1024l2g2e0lr0.0001ep20d0.4-checkpoint121000l1000.csv
-    #--probability-csv ${FASTA_DIR}/predictions/VanjariNT-b16f1024l2g2e0lr0.0001ep20d0.4-checkpoint121000l1000.probability.csv
-    #--image-dir ${FASTA_DIR}/predictions/VanjariNT-b16f1024l2g2e0lr0.0001ep20d0.4-checkpoint121000l1000-images
+    --output-csv ${FASTA_DIR}/predictions/VanjariNT-b16f1024l2g2e0lr0.0001ep20d0.4-checkpoint182000l1000-val.csv \
+    --probability-csv ${FASTA_DIR}/predictions/VanjariNT-b16f1024l2g2e0lr0.0001ep20d0.4-checkpoint182000l1000-val.probability.csv \
+    --image-dir ${FASTA_DIR}/predictions/VanjariNT-b16f1024l2g2e0lr0.0001ep20d0.4-checkpoint182000l1000-val-images
 
