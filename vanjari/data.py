@@ -82,12 +82,12 @@ class VanjariStackDataModule(L.LightningDataModule):
         for accession, index in self.accession_to_array_index.items():
             species_accession = accession.split(":")[0]
             if current_accession != species_accession:
-                if current_list:
+                if current_list is not None:
                     current_list.append(Species(accession=current_accession, index=start_index, count=index-start_index))
                 current_accession = species_accession
                 start_index = index
 
-                detail = self.seqtree[current_accession]
+                detail = self.seqtree[accession]
                 current_list = self.validation if detail.partition == self.validation_partition else self.training
         
         current_list.append(Species(accession=current_accession, index=start_index, count=index-start_index))

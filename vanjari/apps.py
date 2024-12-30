@@ -50,11 +50,13 @@ class Vanjari(ta.TorchApp):
 
         new_accessions = [accession for accession in memmap_index_data if accession.split(":")[0] in filter_accessions]
         new_count = len(new_accessions)
+        output_array_path.parent.mkdir(parents=True, exist_ok=True)
         new_array = np.memmap(output_array_path, dtype='float16', mode='w+', shape=(new_count, memmap_array.shape[1]))
         for ii, accession in enumerate(new_accessions):
             index = memmap_index_data.index(accession)
             new_array[ii,:] = memmap_array[index,:]
         
+        output_index.parent.mkdir(parents=True, exist_ok=True)
         output_index.write_text("\n".join(new_accessions))
 
     @ta.method    
@@ -88,6 +90,12 @@ class Vanjari(ta.TorchApp):
         if max_accessions:
             df = df.head(max_accessions)
         return df
+
+    def node_to_str(self, node:SoftmaxNode) -> str:
+        """ 
+        Converts the node to a string
+        """
+        return str(node).split(",")[-1].strip()
 
 
 class VanjariCorgi(Vanjari, Corgi):
@@ -164,6 +172,93 @@ class VanjariCorgi(Vanjari, Corgi):
         # Save the SeqTree
         seqtree_path.parent.mkdir(parents=True, exist_ok=True)
         seqtree.save(seqtree_path)
+
+    @ta.method
+    def output_results(
+        self,
+        results,
+        output_csv: Path = ta.Param(default=None, help="A path to output the results as a CSV."),
+        image_dir: Path = ta.Param(default=None, help="A directory to output the results as images."),
+        image_threshold:float = 0.005,
+        prediction_threshold:float = ta.Param(default=0.5, help="The threshold value for making hierarchical predictions."),
+        **kwargs,
+    ):
+        assert self.classification_tree # This should be saved from the learner
+        
+        classification_probabilities = node_probabilities(results[0], root=self.classification_tree)
+        category_names = [self.node_to_str(node) for node in self.classification_tree.node_list_softmax if not node.is_root]
+        chunk_details = pd.DataFrame(self.dataloader.chunk_details, columns=["file", "original_id", "chunk"])
+        predictions_df = pd.DataFrame(classification_probabilities.numpy(), columns=category_names)
+
+        results_df = pd.concat(
+            [chunk_details.drop(columns=['chunk']), predictions_df],
+            axis=1,
+        )
+
+        # Average over chunks
+        results_df["chunk_index"] = results_df.index
+        results_df = results_df.groupby(["file", "original_id"]).mean().reset_index()
+
+        # sort to get original order
+        results_df = results_df.sort_values(by="chunk_index").drop(columns=["chunk_index"])
+        
+        # Get new tensors now that we've averaged over chunks
+        classification_probabilities = torch.as_tensor(results_df[category_names].to_numpy()) 
+
+        # get greedy predictions which can use the raw activation or the softmax probabilities
+        predictions = greedy_predictions(
+            classification_probabilities, 
+            root=self.classification_tree, 
+            threshold=prediction_threshold,
+        )
+
+        results_df['greedy_prediction'] = [
+            self.node_to_str(node)
+            for node in predictions
+        ]
+
+        # Sort out headers = 
+        header_string = "SequenceID,Realm (-viria),Realm_score,Subrealm (-vira),Subrealm_score,Kingdom (-virae),Kingdom_score,Subkingdom (-virites),Subkingdom_score,Phylum (-viricota),Phylum_score,Subphylum (-viricotina),Subphylum_score,Class (-viricetes),Class_score,Subclass (-viricetidae),Subclass_score,Order (-virales),Order_score,Suborder (-virineae),Suborder_score,Family (-viridae),Family_score,Subfamily (-virinae),Subfamily_score,Genus (-virus),Genus_score,Subgenus (-virus),Subgenus_score,Species (binomial),Species_score"
+        header_names = header_string.split(",")
+
+        rank_to_header = {header.split(" ")[0]:header for header in header_names[1::2]}
+
+        output_df = pd.DataFrame(columns=header_names)
+        output_df[:] = "NA"
+
+        for index, node in enumerate(predictions):
+            output_df.loc[index, "SequenceID"] = results_df.loc[index, "original_id"]
+            current_probability = 1.0
+            for ancestor in node.ancestors[1:] + (node,):
+                if ancestor.rank == "Root":
+                    continue
+                header = rank_to_header[ancestor.rank]
+                output_df.loc[index, header] = ancestor.name
+                
+                if ancestor.name in results_df.columns:
+                    current_probability = results_df.loc[index, ancestor.name]
+
+                output_df.loc[index, ancestor.rank+"_score"] = current_probability                    
+
+        if output_csv:
+            print(f"Writing inference results to: {output_csv}")
+            output_csv.parent.mkdir(parents=True, exist_ok=True)
+            output_df.to_csv(output_csv, index=False)
+
+        # Output images
+        if image_dir:
+            print(f"Writing inference probability renders to: {image_dir}")
+            image_dir = Path(image_dir)
+            image_paths = [image_dir/f"{name}.png" for name in results_df["original_id"]]
+            render_probabilities(
+                root=self.classification_tree, 
+                filepaths=image_paths,
+                probabilities=classification_probabilities,
+                predictions=predictions,
+                threshold=image_threshold,
+            )
+
+        return output_df
 
 
 @dataclass(kw_only=True)
