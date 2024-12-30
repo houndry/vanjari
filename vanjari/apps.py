@@ -721,7 +721,7 @@ class VanjariStack(VanjariNT):
             tune=True,
             log=True,
             tune_min=256,
-            tune_max=4096,
+            tune_max=2048,
         ),
         intermediate_layers:int=ta.Param(
             default=2,
@@ -735,7 +735,7 @@ class VanjariStack(VanjariNT):
             help="The factor to multiply the initial layers.",
             tune=True,
             tune_min=1.0,
-            tune_max=3.0,
+            tune_max=2.5,
         ),
         dropout:float=ta.Param(
             default=0.0,
