@@ -510,8 +510,9 @@ class VanjariNT(Vanjari, Bloodhound):
         memmap_index:Path=None, # TODO explain
         model_name:str="InstaDeepAI/nucleotide-transformer-v2-500m-multi-species",  # hack
         length:int=1000, # hack
-        batch_size:int = 16,
+        batch_size:int = 1,
         num_workers: int = 0,
+        **kwargs,
     ) -> DataLoader:
 
         self.classification_tree = module.hparams.classification_tree
@@ -703,15 +704,19 @@ class VanjariStack(VanjariNT):
                 current_species = species_accession
 
             # Create new stack if we have a new species or if we get to the stack size
-            if current_species != species_accession or len(index-current_stack_start) >= stack_size:
-                stacks.append(Stack(start=current_stack_start, end=index))
-                sequence_ids.append(species_accession)
+            current_stack_size = index - current_stack_start
+            if current_species != species_accession or current_stack_size >= stack_size:
+                if current_stack_size:
+                    stacks.append(Stack(start=current_stack_start, end=index))
+                    sequence_ids.append(species_accession)
                 current_stack_start = index
                 current_species = species_accession
 
         # Create a new stack at the end of the loop
-        stacks.append(Stack(start=current_stack_start, end=index))
-        sequence_ids.append(species_accession)
+        current_stack_size = index - current_stack_start
+        if current_stack_size:
+            stacks.append(Stack(start=current_stack_start, end=index))
+            sequence_ids.append(species_accession)
 
         dataset = VanjariStackPredictionDataset(array=memmap_array, stacks=stacks)
         return dataset, sequence_ids

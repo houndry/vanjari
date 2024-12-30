@@ -33,7 +33,7 @@ class Species():
     count:int
 
 
-dataclass(kw_only=True)
+@dataclass(kw_only=True)
 class Stack():
     start:int
     end:int
