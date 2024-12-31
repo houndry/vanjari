@@ -23,8 +23,11 @@ build-backend = "poetry.core.masonry.api"
 
 
 [tool.poetry.scripts]
-vanjari = "vanjari.apps:VanjariCorgi.main"
-vanjari-tools = "vanjari.apps:VanjariCorgi.tools"
+vanjari-fast = "vanjari.apps:VanjariFast.main"
+vanjari-fast-tools = "vanjari.apps:VanjariFast.tools"
+
+vanjarint = "vanjari.apps:VanjariNT.main"
 vanjarint-tools = "vanjari.apps:VanjariNT.tools"
-vanjaricorgi-tools = "vanjari.apps:VanjariCorgi.tools"
-vanjaristack-tools = "vanjari.apps:VanjariStack.tools"
+
+vanjari = "vanjari.apps:Vanjari.main"
+vanjari-tools = "vanjari.apps:Vanjari.tools"

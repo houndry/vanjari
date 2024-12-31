@@ -98,6 +98,7 @@ class VanjariStackDataModule(L.LightningDataModule):
     seed:int = 42
     validation_partition:int=0
     stack_size:int = 16
+    train_all:bool = False
 
     def __post_init__(self):
         super().__init__()
@@ -128,6 +129,9 @@ class VanjariStackDataModule(L.LightningDataModule):
         if self.max_items:
             self.training = self.training[:self.max_items]
             self.validation = self.validation[:self.max_items]
+
+        if self.train_all:
+            self.training += self.validation
 
         self.train_dataset = self.create_dataset(self.training, deterministic=False)
         self.val_dataset = self.create_dataset(self.validation, deterministic=True)

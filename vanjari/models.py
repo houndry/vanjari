@@ -134,10 +134,10 @@ class ConvAttentionClassifier(nn.Module):
 
         # weighted sum with weights from attention layer
         attention_scores = self.attention_layer(x)
-        attention_weights = torch.softmax(attention_scores, dim=-1)
-        x = torch.sum(attention_weights * x, dim=-1)
+        attention_weights = torch.softmax(attention_scores, dim=1)
+        context = torch.sum(attention_weights * x, dim=1)
 
-        penultimate_result = self.penultimate(x)
+        penultimate_result = self.penultimate(context)
         predictions = self.final(F.relu(penultimate_result))
 
         split_predictions = split_tensor(predictions, self.output_types, feature_axis=1)

@@ -1,87 +1,100 @@
 import random
-import torch
-import torchapp as ta
-from corgi.apps import Corgi
-from corgi.seqtree import SeqTree
-from torchapp.download import cached_download
 from pathlib import Path
 import pandas as pd
-from seqbank import SeqBank
-from rich.progress import track
-from torch.utils.data import DataLoader
-from hierarchicalsoftmax.inference import node_probabilities, greedy_predictions, render_probabilities
-from torchmetrics import Metric
 import numpy as np
+from torch.utils.data import DataLoader
+from torchmetrics import Metric
 import pyfastx
+from rich.progress import track
 
+import torchapp as ta
+from torchapp.download import cached_download
+from polytorch import total_size
+from seqbank import SeqBank
+from hierarchicalsoftmax.inference import node_probabilities
+from hierarchicalsoftmax import SoftmaxNode
+from corgi.apps import Corgi, calc_cnn_dims_start
+from corgi.seqtree import SeqTree
 from bloodhound.apps import Bloodhound
 from bloodhound.data import read_memmap
-
-from hierarchicalsoftmax import SoftmaxNode
 
 from .nucleotidetransformer import NucleotideTransformerEmbedding 
 from .data import VanjariStackDataModule, VanjariNTPredictionDataset, build_memmap_array, build_stacks, VanjariStackPredictionDataset
 from .models import VanjariAttentionModel, ConvAttentionClassifier
 from .metrics import ICTVTorchMetric, RANKS
+from .output import build_ictv_dataframe
 
 
-def build_ictv_dataframe(probabilities_df, classification_tree, prediction_threshold:float=0.0, image_threshold:float = 0.005, output_csv:Path=None, image_dir:Path=None):
-    header_string = "SequenceID,Realm (-viria),Realm_score,Subrealm (-vira),Subrealm_score,Kingdom (-virae),Kingdom_score,Subkingdom (-virites),Subkingdom_score,Phylum (-viricota),Phylum_score,Subphylum (-viricotina),Subphylum_score,Class (-viricetes),Class_score,Subclass (-viricetidae),Subclass_score,Order (-virales),Order_score,Suborder (-virineae),Suborder_score,Family (-viridae),Family_score,Subfamily (-virinae),Subfamily_score,Genus (-virus),Genus_score,Subgenus (-virus),Subgenus_score,Species (binomial),Species_score"
-    header_names = header_string.split(",")
 
-    category_names = [column for column in probabilities_df.columns if column not in ["index", "SequenceID", "original_id", "file", "chunk", "greedy_prediction"]]
-    assert len(category_names) == len(classification_tree.node_list_softmax)
+class VanjariBase(ta.TorchApp):
+    @ta.tool
+    def set_validation_partition(
+        self, 
+        seqtree:Path=ta.Param(..., help="Path to the SeqTree"),
+        validation_csv:Path=ta.Param(..., help="Path to the validation CSV file"),
+        output:Path=ta.Param(..., help="Path to save the SeqTree"),
+    ):
+        seqtree = SeqTree.load(Path(seqtree))
+        validation_df = pd.read_csv(validation_csv)
+        validation_accessions = set(validation_df['SequenceID'])
+        for accession, detail in seqtree.items():
+            detail.partition = 0 if accession.split(":")[0] in validation_accessions else 1
+        
+        output.parent.mkdir(parents=True, exist_ok=True)
+        seqtree.save(output)
 
-    classification_probabilities = torch.as_tensor(probabilities_df[category_names].to_numpy()) 
+    @ta.tool
+    def taxonomy_csv(
+        self, 
+        csv:Path=ta.Param(..., help="Path to save the CSV"), 
+        filter:Path=ta.Param(None, help="Path with accessions to use as a filter"),
+    ):
+        header_string = "SequenceID,Realm (-viria),Realm_score,Subrealm (-vira),Subrealm_score,Kingdom (-virae),Kingdom_score,Subkingdom (-virites),Subkingdom_score,Phylum (-viricota),Phylum_score,Subphylum (-viricotina),Subphylum_score,Class (-viricetes),Class_score,Subclass (-viricetidae),Subclass_score,Order (-virales),Order_score,Suborder (-virineae),Suborder_score,Family (-viridae),Family_score,Subfamily (-virinae),Subfamily_score,Genus (-virus),Genus_score,Subgenus (-virus),Subgenus_score,Species (binomial),Species_score"        
+        header_names = header_string.split(",")
 
-    # get greedy predictions which can use the raw activation or the softmax probabilities
-    predictions = greedy_predictions(
-        classification_probabilities, 
-        root=classification_tree, 
-        threshold=prediction_threshold,
-    )
+        rank_to_header = {header.split(" ")[0]:header for header in header_names[1::2]}
 
-    rank_to_header = {header.split(" ")[0]:header for header in header_names[1::2]}
+        if filter:
+            filter = set(Path(filter).read_text().strip().split("\n"))
 
-    output_df = pd.DataFrame(columns=header_names)
-    output_df[:] = "NA"
-
-    for index, node in enumerate(predictions):
-        output_df.loc[index, "SequenceID"] = probabilities_df.loc[index, "SequenceID"]
-        current_probability = 1.0
-        for ancestor in node.ancestors[1:] + (node,):
-            if ancestor.rank == "Root":
+        df = self.taxonomy_df()
+        
+        data = []
+        # for _, row in df.iterrows():
+        for _, row in track(df.iterrows(), total=len(df)):            
+            genbank_accession = row['Virus GENBANK accession'].strip()
+            if not genbank_accession:
                 continue
-            header = rank_to_header[ancestor.rank]
-            output_df.loc[index, header] = ancestor.name
-            
-            if ancestor.name in probabilities_df.columns:
-                current_probability = probabilities_df.loc[index, ancestor.name]
 
-            output_df.loc[index, ancestor.rank+"_score"] = current_probability                    
+            accessions = genbank_accession.split(";")
+            for accession in accessions:
+                accession = accession.strip()
+                if ":" in accession:
+                    accession = accession.split(":")[1].strip()
+                accession = accession.split(" ")[0]
 
-    if output_csv:
-        print(f"Writing inference results to: {output_csv}")
-        output_csv.parent.mkdir(parents=True, exist_ok=True)
-        output_df.to_csv(output_csv, index=False)
+                if filter and accession not in filter:
+                    continue
 
-    if image_dir:
-        print(f"Writing inference probability renders to: {image_dir}")
-        image_dir = Path(image_dir)
-        image_paths = [image_dir/f"{name}.png" for name in probabilities_df["SequenceID"]]
-        render_probabilities(
-            root=classification_tree, 
-            filepaths=image_paths,
-            probabilities=classification_probabilities,
-            predictions=predictions,
-            threshold=image_threshold,
-        )
+                insert_row = dict(SequenceID=accession)
+                for rank in RANKS:
+                    value = row[rank]
+                    score = 1.0
+                    if not value:
+                        value = "NA"
+                        score = "NA"
 
-    return output_df
+                    insert_row[rank_to_header[rank]] = value
+                    insert_row[rank+"_score"] = score
 
+                data.append(insert_row)
 
+        output_df = pd.DataFrame(data, columns=header_names)
 
-class Vanjari(ta.TorchApp):
+        csv.parent.mkdir(parents=True, exist_ok=True)
+        print(f"Writing taxonomy to {csv}")
+        output_df.to_csv(csv, index=False)
+
     @ta.tool
     def ensemble_csvs(
         self,
@@ -223,7 +236,7 @@ class Vanjari(ta.TorchApp):
         return str(node).split(",")[-1].strip()
 
 
-class VanjariCorgi(Vanjari, Corgi):
+class VanjariFast(VanjariBase, Corgi):
     @ta.tool
     def preprocess(
         self, 
@@ -241,12 +254,6 @@ class VanjariCorgi(Vanjari, Corgi):
         seqbank = SeqBank(path=seqbank_path, write=True)
 
         df = self.taxonomy_df(max_accessions)
-        taxonomic_columns = [
-            'Realm', 'Subrealm',
-            'Kingdom', 'Subkingdom', 'Phylum', 'Subphylum', 'Class', 'Subclass',
-            'Order', 'Suborder', 'Family', 'Subfamily', 'Genus', 'Subgenus',
-            'Species',
-        ]
         root = SoftmaxNode(name="Virus", rank="Root")
         seqtree = SeqTree(root)
         
@@ -257,7 +264,7 @@ class VanjariCorgi(Vanjari, Corgi):
             if not genbank_accession:
                 continue
 
-            for rank in taxonomic_columns:
+            for rank in RANKS:
                 value = row[rank]
                 if not value:
                     continue
@@ -268,7 +275,6 @@ class VanjariCorgi(Vanjari, Corgi):
                         found = True
                         break
                 current_node = child if found else SoftmaxNode(name=value, parent=current_node, rank=rank) 
-
             
             accessions = genbank_accession.split(";")
             for accession in accessions:
@@ -328,6 +334,11 @@ class VanjariCorgi(Vanjari, Corgi):
         # sort to get original order
         results_df = results_df.sort_values(by="chunk_index").drop(columns=["chunk_index"]).reset_index()
         
+        if output_feather:
+            output_feather.parent.mkdir(parents=True, exist_ok=True)
+            print(f"Writing probabilities to {output_feather}")
+            results_df.to_feather(output_feather)
+
         build_ictv_dataframe(results_df, self.classification_tree, prediction_threshold, image_threshold=image_threshold, output_csv=output_csv, image_dir=image_dir)
 
         return results_df
@@ -388,7 +399,7 @@ class VanjariCorgi(Vanjari, Corgi):
             tune=True,
             log=True,
             tune_min=512,
-            tune_max=2048,
+            tune_max=8192,
         ),
         macc:int = ta.Param(
             default=10_000_000,
@@ -396,12 +407,12 @@ class VanjariCorgi(Vanjari, Corgi):
         ),
         attention_hidden_size: int = 512,
         **kwargs,
-    ) -> nn.Module:
+    ) -> ConvAttentionClassifier:
         """
         Creates a deep learning model for the Corgi to use.
 
         Returns:
-            nn.Module: The created model.
+            ConvAttentionClassifier: The created model.
         """
         assert self.classification_tree
 
@@ -444,81 +455,7 @@ class VanjariCorgi(Vanjari, Corgi):
         )
 
 
-class VanjariNT(Vanjari, Bloodhound):
-    @ta.tool
-    def set_validation_partition(
-        self, 
-        seqtree:Path=ta.Param(..., help="Path to the SeqTree"),
-        validation_csv:Path=ta.Param(..., help="Path to the validation CSV file"),
-        output:Path=ta.Param(..., help="Path to save the SeqTree"),
-    ):
-        seqtree = SeqTree.load(Path(seqtree))
-        validation_df = pd.read_csv(validation_csv)
-        validation_accessions = set(validation_df['SequenceID'])
-        for accession, detail in seqtree.items():
-            detail.partition = 0 if accession.split(":")[0] in validation_accessions else 1
-        
-        output.parent.mkdir(parents=True, exist_ok=True)
-        seqtree.save(output)
-
-    @ta.tool
-    def taxonomy_csv(
-        self, 
-        csv:Path=ta.Param(..., help="Path to save the CSV"), 
-        filter:Path=ta.Param(None, help="Path with accessions to use as a filter"),
-    ):
-        header_string = "SequenceID,Realm (-viria),Realm_score,Subrealm (-vira),Subrealm_score,Kingdom (-virae),Kingdom_score,Subkingdom (-virites),Subkingdom_score,Phylum (-viricota),Phylum_score,Subphylum (-viricotina),Subphylum_score,Class (-viricetes),Class_score,Subclass (-viricetidae),Subclass_score,Order (-virales),Order_score,Suborder (-virineae),Suborder_score,Family (-viridae),Family_score,Subfamily (-virinae),Subfamily_score,Genus (-virus),Genus_score,Subgenus (-virus),Subgenus_score,Species (binomial),Species_score"        
-        header_names = header_string.split(",")
-
-        rank_to_header = {header.split(" ")[0]:header for header in header_names[1::2]}
-
-        if filter:
-            filter = set(Path(filter).read_text().strip().split("\n"))
-
-        df = self.taxonomy_df()
-        taxonomic_columns = [
-            'Realm', 'Subrealm',
-            'Kingdom', 'Subkingdom', 'Phylum', 'Subphylum', 'Class', 'Subclass',
-            'Order', 'Suborder', 'Family', 'Subfamily', 'Genus', 'Subgenus',
-            'Species',
-        ]
-        
-        data = []
-        # for _, row in df.iterrows():
-        for _, row in track(df.iterrows(), total=len(df)):            
-            genbank_accession = row['Virus GENBANK accession'].strip()
-            if not genbank_accession:
-                continue
-
-            accessions = genbank_accession.split(";")
-            for accession in accessions:
-                accession = accession.strip()
-                if ":" in accession:
-                    accession = accession.split(":")[1].strip()
-                accession = accession.split(" ")[0]
-
-                if filter and accession not in filter:
-                    continue
-
-                insert_row = dict(SequenceID=accession)
-                for rank in taxonomic_columns:
-                    value = row[rank]
-                    score = 1.0
-                    if not value:
-                        value = "NA"
-                        score = "NA"
-
-                    insert_row[rank_to_header[rank]] = value
-                    insert_row[rank+"_score"] = score
-
-                data.append(insert_row)
-
-        output_df = pd.DataFrame(data, columns=header_names)
-
-        csv.parent.mkdir(parents=True, exist_ok=True)
-        print(f"Writing taxonomy to {csv}")
-        output_df.to_csv(csv, index=False)
-
+class VanjariNT(VanjariBase, Bloodhound):
     @ta.tool
     def preprocess(
         self, 
@@ -536,12 +473,6 @@ class VanjariNT(Vanjari, Bloodhound):
         model.setup(model_name=model_name)
 
         df = self.taxonomy_df(max_accessions)
-        taxonomic_columns = [
-            'Realm', 'Subrealm',
-            'Kingdom', 'Subkingdom', 'Phylum', 'Subphylum', 'Class', 'Subclass',
-            'Order', 'Suborder', 'Family', 'Subfamily', 'Genus', 'Subgenus',
-            'Species',
-        ]
         root = SoftmaxNode(name="Virus", rank="Root")
         seqtree = SeqTree(root)
         
@@ -592,7 +523,7 @@ class VanjariNT(Vanjari, Bloodhound):
                     continue
 
                 current_node = root
-                for rank in taxonomic_columns:
+                for rank in RANKS:
                     value = row[rank]
                     if not value:
                         continue
@@ -650,21 +581,28 @@ class VanjariNT(Vanjari, Bloodhound):
         dataset = VanjariNTPredictionDataset(array=memmap_array)
         return dataset, sequence_ids
 
+    @ta.method
+    def extra_hyperparameters(self, length:int=1000) -> dict:
+        """ Extra hyperparameters to save with the module. """
+        return dict(
+            length=length,
+            classification_tree=self.seqtree.classification_tree,
+        )
+
     @ta.method("build_dataset_sequence_ids")
     def prediction_dataloader(
         self,
         module,
         input:Path=ta.Param(help="A path to a directory of fasta files or a single fasta file."),
-        extension='fasta',
+        extension:str='fasta',
         memmap_array_path:Path=None, # TODO explain
         memmap_index:Path=None, # TODO explain
         model_name:str="InstaDeepAI/nucleotide-transformer-v2-500m-multi-species",  # hack
-        length:int=1000, # hack
         batch_size:int = 1,
         num_workers: int = 0,
         **kwargs,
     ) -> DataLoader:
-
+        length = module.hparams.length
         self.classification_tree = module.hparams.classification_tree
 
         memmap_array, accessions = build_memmap_array(
@@ -717,7 +655,7 @@ class VanjariNT(Vanjari, Bloodhound):
         return results_df
 
 
-class VanjariStack(VanjariNT):
+class Vanjari(VanjariNT):
     @ta.method    
     def data(
         self,
@@ -726,6 +664,7 @@ class VanjariStack(VanjariNT):
         stack_size:int=16,
         validation_partition:int=0,
         seed:int = 42,
+        train_all:bool = False,
     ) -> VanjariStackDataModule:
 
         return VanjariStackDataModule(
@@ -736,6 +675,7 @@ class VanjariStack(VanjariNT):
             num_workers=num_workers,
             stack_size=stack_size,
             seed=seed,
+            train_all=train_all,
             validation_partition=validation_partition,
         )
 
@@ -799,20 +739,3 @@ class VanjariStack(VanjariNT):
         dataset = VanjariStackPredictionDataset(array=memmap_array, stacks=stacks)
         return dataset, sequence_ids
 
-    # @method
-    # def extra_hyperparameters(self, embedding_model:str="", max_length:int=None) -> dict:
-    #     """ Extra hyperparameters to save with the module. """
-    #     assert embedding_model, f"Please provide an embedding model."
-    #     embedding_model = embedding_model.lower()
-    #     if embedding_model.startswith("esm"):
-    #         layers = embedding_model[3:].strip()
-    #         embedding_model = ESMEmbedding(max_length=max_length)
-    #         embedding_model.setup(layers=layers)
-    #     else:
-    #         raise ValueError(f"Cannot understand embedding model: {embedding_model}")
-
-    #     return dict(
-    #         embedding_model=embedding_model,
-    #         classification_tree=self.seqtree.classification_tree,
-    #         gene_id_dict=self.gene_id_dict,
-    #     )
