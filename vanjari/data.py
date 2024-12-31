@@ -273,7 +273,12 @@ def build_stacks(accessions:list[str], stack_size:int=32, overlap:int=8) -> tupl
     species_names = []
     for species in species_list:
         species_name = species.accession
-        for interval in generate_overlapping_intervals(species.count, stack_size, overlap):
-            stacks.append(Stack(start=species.index+interval[0], end=species.index+interval[1]))
+        if species.count <= stack_size:
+            stacks.append(Stack(start=species.index, end=species.index+species.count))
             species_names.append(species_name)
+        else:
+            intervals = generate_overlapping_intervals(species.count, stack_size, overlap)
+            for interval in intervals:
+                stacks.append(Stack(start=species.index+interval[0], end=species.index+interval[1]))
+                species_names.append(species_name)
     return stacks, species_names

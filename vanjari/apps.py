@@ -29,8 +29,8 @@ def build_ictv_dataframe(probabilities_df, classification_tree, prediction_thres
     header_string = "SequenceID,Realm (-viria),Realm_score,Subrealm (-vira),Subrealm_score,Kingdom (-virae),Kingdom_score,Subkingdom (-virites),Subkingdom_score,Phylum (-viricota),Phylum_score,Subphylum (-viricotina),Subphylum_score,Class (-viricetes),Class_score,Subclass (-viricetidae),Subclass_score,Order (-virales),Order_score,Suborder (-virineae),Suborder_score,Family (-viridae),Family_score,Subfamily (-virinae),Subfamily_score,Genus (-virus),Genus_score,Subgenus (-virus),Subgenus_score,Species (binomial),Species_score"
     header_names = header_string.split(",")
 
-    category_names = [column for column in probabilities_df.columns if column not in ["SequenceID", "original_id", "file", "chunk", "greedy_prediction"]]
-    assert len(category_names) == len(classification_tree.node_list_softmax) - 1
+    category_names = [column for column in probabilities_df.columns if column not in ["index", "SequenceID", "original_id", "file", "chunk", "greedy_prediction"]]
+    assert len(category_names) == len(classification_tree.node_list_softmax)
 
     classification_probabilities = torch.as_tensor(probabilities_df[category_names].to_numpy()) 
 
