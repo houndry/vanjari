@@ -675,7 +675,7 @@ class VanjariNT(Vanjari, Bloodhound):
             model_name=model_name,
             length=length,
         )
-        dataset, self.sequence_ids = self.build_dataset_sequence_ids(memmap_array, accessions)
+        dataset, self.sequence_ids = self.build_dataset_sequence_ids(memmap_array, accessions, **kwargs)
         dataloader = DataLoader(dataset, batch_size=batch_size, num_workers=num_workers, shuffle=False)
 
         return dataloader
