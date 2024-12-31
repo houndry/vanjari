@@ -21,7 +21,7 @@ from hierarchicalsoftmax import SoftmaxNode
 
 from .nucleotidetransformer import NucleotideTransformerEmbedding 
 from .data import VanjariStackDataModule, VanjariNTPredictionDataset, build_memmap_array, build_stacks, VanjariStackPredictionDataset
-from .models import VanjariAttentionModel
+from .models import VanjariAttentionModel, ConvAttentionClassifier
 from .metrics import ICTVTorchMetric, RANKS
 
 
@@ -331,6 +331,117 @@ class VanjariCorgi(Vanjari, Corgi):
         build_ictv_dataframe(results_df, self.classification_tree, prediction_threshold, image_threshold=image_threshold, output_csv=output_csv, image_dir=image_dir)
 
         return results_df
+
+    @ta.method("module_class")
+    def model(
+        self,
+        pretrained:Path = ta.Param(None, help="A pretrained model to finetune."),
+        embedding_dim: int = ta.Param(
+            default=8,
+            help="The size of the embeddings for the nucleotides (N, A, G, C, T).",
+            tune=True,
+            tune_min=4,
+            tune_max=32,
+            log=True,
+        ),
+        cnn_layers: int = ta.Param(
+            default=6,
+            help="The number of 1D convolution layers.",
+            tune=True,
+            tune_min=2,
+            tune_max=6,
+        ),
+        kernel_size_maxpool: int = ta.Param(
+            default=2,
+            help="The size of the pooling before going to the LSTM.",
+        ),
+        dropout: float = ta.Param(
+            default=0.2,
+            help="The amount of dropout to use. (not currently enabled)",
+            tune=True,
+            tune_min=0.0,
+            tune_max=0.3,
+        ),
+        final_bias: bool = ta.Param(
+            default=True,
+            help="Whether or not to use bias in the final layer.",
+            tune=True,
+        ),
+        kernel_size: int = ta.Param(
+            default=3, help="The size of the kernels for CNN only classifier.", tune=True, tune_choices=[3, 5, 7, 9]
+        ),
+        cnn_dims_start: int = ta.Param(
+            default=None,
+            help="The size of the number of filters in the first CNN layer. If not set then it is derived from the MACC",
+        ),
+        factor: float = ta.Param(
+            default=2.0,
+            help="The factor to multiply the number of filters in the CNN layers each time it is downscaled.",
+            tune=True,
+            log=True,
+            tune_min=0.5,
+            tune_max=2.5,
+        ),
+        penultimate_dims: int = ta.Param(
+            default=1024,
+            help="The factor to multiply the number of filters in the CNN layers each time it is downscaled.",
+            tune=True,
+            log=True,
+            tune_min=512,
+            tune_max=2048,
+        ),
+        macc:int = ta.Param(
+            default=10_000_000,
+            help="The approximate number of multiply or accumulate operations in the model. Used to set cnn_dims_start if not provided explicitly.",
+        ),
+        attention_hidden_size: int = 512,
+        **kwargs,
+    ) -> nn.Module:
+        """
+        Creates a deep learning model for the Corgi to use.
+
+        Returns:
+            nn.Module: The created model.
+        """
+        assert self.classification_tree
+
+        num_classes = total_size(self.output_types)
+
+        if pretrained:
+            module_class = self.module_class(**kwargs)
+            module = module_class.load_from_checkpoint(pretrained)
+            model = module.model
+            model.replace_output_types(self.output_types, final_bias=final_bias)
+            return model
+
+        # if cnn_dims_start not given then calculate it from the MACC
+        if not cnn_dims_start:
+            assert macc
+
+            cnn_dims_start = calc_cnn_dims_start(
+                macc=macc,
+                seq_len=1024, # arbitary number
+                embedding_dim=embedding_dim,
+                cnn_layers=cnn_layers,
+                kernel_size=kernel_size,
+                factor=factor,
+                penultimate_dims=penultimate_dims,
+                num_classes=num_classes,
+            )
+
+        return ConvAttentionClassifier(
+            num_embeddings=5,  # i.e. the size of the vocab which is N, A, C, G, T
+            kernel_size=kernel_size,
+            factor=factor,
+            cnn_layers=cnn_layers,
+            output_types=self.output_types,
+            kernel_size_maxpool=kernel_size_maxpool,
+            final_bias=final_bias,
+            dropout=dropout,
+            cnn_dims_start=cnn_dims_start,
+            penultimate_dims=penultimate_dims,
+            attention_hidden_size=attention_hidden_size,
+        )
 
 
 class VanjariNT(Vanjari, Bloodhound):
