@@ -16,6 +16,20 @@ bloodhound = {git = "git@github.com:bloodhound-devs/bloodhound.git", branch="pre
 pyfastx = "^1.1.0"
 openpyxl = "^3.1.5"
 
+[tool.poetry.dev-dependencies]
+pytest = ">=6.2.5"
+ipykernel = ">=6.6.1"
+coverage = ">=7.0"
+autopep8 = ">=1.5.7"
+Sphinx = ">=5.0"
+nbsphinx = ">=0.8.7"
+sphinx-rtd-theme = ">=1.0.0"
+sphinx-autobuild = ">=2021.3.14"
+myst-parser = ">=0.15.2"
+pre-commit = ">=2.15.0"
+sphinx-copybutton = ">=0.4.0"
+black = ">=21.10b0"
+sphinx-click = {git = "https://github.com/rbturnbull/sphinx-click.git"}
 
 [build-system]
 requires = ["poetry-core"]
