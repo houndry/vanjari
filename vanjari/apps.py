@@ -20,9 +20,66 @@ from bloodhound.data import read_memmap
 from hierarchicalsoftmax import SoftmaxNode
 
 from .nucleotidetransformer import NucleotideTransformerEmbedding 
-from .data import VanjariStackDataModule, VanjariNTPredictionDataset, build_memmap_array, Stack, VanjariStackPredictionDataset
+from .data import VanjariStackDataModule, VanjariNTPredictionDataset, build_memmap_array, build_stacks, VanjariStackPredictionDataset
 from .models import VanjariAttentionModel
 from .metrics import ICTVTorchMetric, RANKS
+
+
+def build_ictv_dataframe(probabilities_df, classification_tree, prediction_threshold:float=0.0, image_threshold:float = 0.005, output_csv:Path=None, image_dir:Path=None):
+    header_string = "SequenceID,Realm (-viria),Realm_score,Subrealm (-vira),Subrealm_score,Kingdom (-virae),Kingdom_score,Subkingdom (-virites),Subkingdom_score,Phylum (-viricota),Phylum_score,Subphylum (-viricotina),Subphylum_score,Class (-viricetes),Class_score,Subclass (-viricetidae),Subclass_score,Order (-virales),Order_score,Suborder (-virineae),Suborder_score,Family (-viridae),Family_score,Subfamily (-virinae),Subfamily_score,Genus (-virus),Genus_score,Subgenus (-virus),Subgenus_score,Species (binomial),Species_score"
+    header_names = header_string.split(",")
+
+    category_names = [column for column in probabilities_df.columns if column not in ["SequenceID", "original_id", "file", "chunk", "greedy_prediction"]]
+    assert len(category_names) == len(classification_tree.node_list_softmax) - 1
+
+    classification_probabilities = torch.as_tensor(probabilities_df[category_names].to_numpy()) 
+
+    # get greedy predictions which can use the raw activation or the softmax probabilities
+    predictions = greedy_predictions(
+        classification_probabilities, 
+        root=classification_tree, 
+        threshold=prediction_threshold,
+    )
+
+    rank_to_header = {header.split(" ")[0]:header for header in header_names[1::2]}
+
+    output_df = pd.DataFrame(columns=header_names)
+    output_df[:] = "NA"
+
+    for index, node in enumerate(predictions):
+        output_df.loc[index, "SequenceID"] = probabilities_df.loc[index, "SequenceID"]
+        current_probability = 1.0
+        for ancestor in node.ancestors[1:] + (node,):
+            if ancestor.rank == "Root":
+                continue
+            header = rank_to_header[ancestor.rank]
+            output_df.loc[index, header] = ancestor.name
+            
+            if ancestor.name in probabilities_df.columns:
+                current_probability = probabilities_df.loc[index, ancestor.name]
+
+            output_df.loc[index, ancestor.rank+"_score"] = current_probability                    
+
+    if output_csv:
+        print(f"Writing inference results to: {output_csv}")
+        output_csv.parent.mkdir(parents=True, exist_ok=True)
+        output_df.to_csv(output_csv, index=False)
+
+    if image_dir:
+        print(f"Writing inference probability renders to: {image_dir}")
+        image_dir = Path(image_dir)
+        image_paths = [image_dir/f"{name}.png" for name in probabilities_df["SequenceID"]]
+        render_probabilities(
+            root=classification_tree, 
+            filepaths=image_paths,
+            probabilities=classification_probabilities,
+            predictions=predictions,
+            threshold=image_threshold,
+        )
+
+    return output_df
+
+
 
 class Vanjari(ta.TorchApp):
     @ta.tool
@@ -256,7 +313,7 @@ class VanjariCorgi(Vanjari, Corgi):
         
         classification_probabilities = node_probabilities(results[0], root=self.classification_tree)
         category_names = [self.node_to_str(node) for node in self.classification_tree.node_list_softmax if not node.is_root]
-        chunk_details = pd.DataFrame(self.dataloader.chunk_details, columns=["file", "original_id", "chunk"])
+        chunk_details = pd.DataFrame(self.dataloader.chunk_details, columns=["file", "SequenceID", "chunk"])
         predictions_df = pd.DataFrame(classification_probabilities.numpy(), columns=category_names)
 
         results_df = pd.concat(
@@ -266,73 +323,14 @@ class VanjariCorgi(Vanjari, Corgi):
 
         # Average over chunks
         results_df["chunk_index"] = results_df.index
-        results_df = results_df.groupby(["file", "original_id"]).mean().reset_index()
+        results_df = results_df.groupby(["file", "SequenceID"]).mean().reset_index()
 
         # sort to get original order
         results_df = results_df.sort_values(by="chunk_index").drop(columns=["chunk_index"]).reset_index()
         
-        # Get new tensors now that we've averaged over chunks
-        classification_probabilities = torch.as_tensor(results_df[category_names].to_numpy()) 
+        build_ictv_dataframe(results_df, self.classification_tree, prediction_threshold, image_threshold=image_threshold, output_csv=output_csv, image_dir=image_dir)
 
-        # get greedy predictions which can use the raw activation or the softmax probabilities
-        predictions = greedy_predictions(
-            classification_probabilities, 
-            root=self.classification_tree, 
-            threshold=prediction_threshold,
-        )
-
-        results_df['greedy_prediction'] = [
-            self.node_to_str(node)
-            for node in predictions
-        ]
-
-        if output_feather:
-            output_feather.parent.mkdir(parents=True, exist_ok=True)
-            print(f"Writing probabilities to {output_feather}")
-            results_df.to_feather(output_feather)
-
-        # Sort out headers = 
-        header_string = "SequenceID,Realm (-viria),Realm_score,Subrealm (-vira),Subrealm_score,Kingdom (-virae),Kingdom_score,Subkingdom (-virites),Subkingdom_score,Phylum (-viricota),Phylum_score,Subphylum (-viricotina),Subphylum_score,Class (-viricetes),Class_score,Subclass (-viricetidae),Subclass_score,Order (-virales),Order_score,Suborder (-virineae),Suborder_score,Family (-viridae),Family_score,Subfamily (-virinae),Subfamily_score,Genus (-virus),Genus_score,Subgenus (-virus),Subgenus_score,Species (binomial),Species_score"
-        header_names = header_string.split(",")
-
-        rank_to_header = {header.split(" ")[0]:header for header in header_names[1::2]}
-
-        output_df = pd.DataFrame(columns=header_names)
-        output_df[:] = "NA"
-
-        for index, node in enumerate(predictions):
-            output_df.loc[index, "SequenceID"] = results_df.loc[index, "original_id"]
-            current_probability = 1.0
-            for ancestor in node.ancestors[1:] + (node,):
-                if ancestor.rank == "Root":
-                    continue
-                header = rank_to_header[ancestor.rank]
-                output_df.loc[index, header] = ancestor.name
-                
-                if ancestor.name in results_df.columns:
-                    current_probability = results_df.loc[index, ancestor.name]
-
-                output_df.loc[index, ancestor.rank+"_score"] = current_probability                    
-
-        if output_csv:
-            print(f"Writing inference results to: {output_csv}")
-            output_csv.parent.mkdir(parents=True, exist_ok=True)
-            output_df.to_csv(output_csv, index=False)
-
-        # Output images
-        if image_dir:
-            print(f"Writing inference probability renders to: {image_dir}")
-            image_dir = Path(image_dir)
-            image_paths = [image_dir/f"{name}.png" for name in results_df["original_id"]]
-            render_probabilities(
-                root=self.classification_tree, 
-                filepaths=image_paths,
-                probabilities=classification_probabilities,
-                predictions=predictions,
-                threshold=image_threshold,
-            )
-
-        return output_df
+        return results_df
 
 
 class VanjariNT(Vanjari, Bloodhound):
@@ -603,55 +601,9 @@ class VanjariNT(Vanjari, Bloodhound):
             print(f"Writing probabilities to {output_feather}")
             results_df.to_feather(output_feather)
         
-        classification_probabilities = torch.as_tensor(results_df[category_names].to_numpy()) 
+        build_ictv_dataframe(results_df, self.classification_tree, prediction_threshold, image_threshold=image_threshold, output_csv=output_csv, image_dir=image_dir)
 
-        # get greedy predictions which can use the raw activation or the softmax probabilities
-        predictions = greedy_predictions(
-            classification_probabilities, 
-            root=self.classification_tree, 
-            threshold=prediction_threshold,
-        )
-
-        # Sort out headers = 
-        header_string = "SequenceID,Realm (-viria),Realm_score,Subrealm (-vira),Subrealm_score,Kingdom (-virae),Kingdom_score,Subkingdom (-virites),Subkingdom_score,Phylum (-viricota),Phylum_score,Subphylum (-viricotina),Subphylum_score,Class (-viricetes),Class_score,Subclass (-viricetidae),Subclass_score,Order (-virales),Order_score,Suborder (-virineae),Suborder_score,Family (-viridae),Family_score,Subfamily (-virinae),Subfamily_score,Genus (-virus),Genus_score,Subgenus (-virus),Subgenus_score,Species (binomial),Species_score"
-        header_names = header_string.split(",")
-
-        rank_to_header = {header.split(" ")[0]:header for header in header_names[1::2]}
-
-        output_df = pd.DataFrame(columns=header_names)
-        output_df[:] = "NA"
-
-        for index, node in enumerate(predictions):
-            output_df.loc[index, "SequenceID"] = results_df.loc[index, "SequenceID"]
-            current_probability = 1.0
-            for ancestor in node.ancestors[1:] + (node,):
-                header = rank_to_header[ancestor.rank]
-                output_df.loc[index, header] = ancestor.name
-                
-                if ancestor.name in results_df.columns:
-                    current_probability = results_df.loc[index, ancestor.name]
-
-                output_df.loc[index, ancestor.rank+"_score"] = current_probability                    
-
-        if output_csv:
-            print(f"Writing inference results to: {output_csv}")
-            output_csv.parent.mkdir(parents=True, exist_ok=True)
-            output_df.to_csv(output_csv, index=False)
-
-        # Output images
-        if image_dir:
-            print(f"Writing inference probability renders to: {image_dir}")
-            image_dir = Path(image_dir)
-            image_paths = [image_dir/f"{name}.png" for name in results_df["SequenceID"]]
-            render_probabilities(
-                root=self.classification_tree, 
-                filepaths=image_paths,
-                probabilities=classification_probabilities,
-                predictions=predictions,
-                threshold=image_threshold,
-            )
-
-        return output_df
+        return results_df
 
 
 class VanjariStack(VanjariNT):
@@ -731,34 +683,8 @@ class VanjariStack(VanjariNT):
         return 1
 
     @ta.method
-    def build_dataset_sequence_ids(self, memmap_array, accessions, stack_size:int=16, **kwargs):
-        sequence_ids = []
-        stacks = []
-        current_species = None
-        current_stack_start = None
-        for index, accession in enumerate(accessions):
-            species_accession = accession.split(":")[0]
-            if current_stack_start is None:
-                current_stack_start = index
-
-            if current_species is None:
-                current_species = species_accession
-
-            # Create new stack if we have a new species or if we get to the stack size
-            current_stack_size = index - current_stack_start
-            if current_species != species_accession or current_stack_size >= stack_size:
-                if current_stack_size:
-                    stacks.append(Stack(start=current_stack_start, end=index))
-                    sequence_ids.append(species_accession)
-                current_stack_start = index
-                current_species = species_accession
-
-        # Create a new stack at the end of the loop
-        current_stack_size = index - current_stack_start
-        if current_stack_size:
-            stacks.append(Stack(start=current_stack_start, end=index))
-            sequence_ids.append(species_accession)
-
+    def build_dataset_sequence_ids(self, memmap_array, accessions, stack_size:int=32, overlap:int=8, **kwargs):
+        stacks, sequence_ids = build_stacks(accessions, stack_size, overlap)
         dataset = VanjariStackPredictionDataset(array=memmap_array, stacks=stacks)
         return dataset, sequence_ids
 

@@ -13,6 +13,7 @@ from torch.utils.data import Dataset
 from dataclasses import dataclass
 from rich.progress import Progress
 from bloodhound.data import read_memmap
+from bloodhound.embedding import generate_overlapping_intervals
 
 import pyfastx
 
@@ -242,3 +243,37 @@ def build_memmap_array(
     accessions = memmap_index.read_text().strip().split("\n")
 
     return memmap_array, accessions
+
+
+
+def build_species_list(accessions:list[str]) -> list[Species]:
+    species_list = []
+    current_species = None
+    species_index_start = 0
+    for index, accession in enumerate(accessions):
+        species_accession = accession.split(":")[0]
+        if current_species is None:
+            current_species = species_accession
+
+        # Create new stack if we have a new species or if we get to the stack size
+        if current_species != species_accession:
+            species_list.append(Species(accession=current_species, index=species_index_start, count=index-species_index_start))
+            species_index_start = index
+            current_species = species_accession
+
+    # Create a new stack at the end of the loop
+    species_list.append(Species(accession=current_species, index=species_index_start, count=index-species_index_start))
+
+    return species_list
+
+
+def build_stacks(accessions:list[str], stack_size:int=32, overlap:int=8) -> tuple[list[Stack], list[str]]:
+    species_list = build_species_list(accessions)
+    stacks = []
+    species_names = []
+    for species in species_list:
+        species_name = species.accession
+        for interval in generate_overlapping_intervals(species.count, stack_size, overlap):
+            stacks.append(Stack(start=species.index+interval[0], end=species.index+interval[1]))
+            species_names.append(species_name)
+    return stacks, species_names
