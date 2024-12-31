@@ -168,21 +168,32 @@ class VanjariNTPredictionDataset(Dataset):
 
 
 def build_memmap_array(
-    input:Path,
-    extension='fasta',
+    input:list[Path],
     memmap_array_path:Path=None,
     memmap_index:Path=None,
     model_name:str="InstaDeepAI/nucleotide-transformer-v2-500m-multi-species",
     length:int=1000,
 ) -> tuple[np.memmap, list[str]]:
     # Get list of fasta files
+    base_extensions = {".fa", ".fasta", ".fna"}
+
+    # Function to check if a file matches allowed extensions (including .gz)
+    def matches_extensions(file: Path):
+        return (
+            file.suffix in base_extensions or
+            (file.suffix == ".gz" and any(file.stem.endswith(ext) for ext in base_extensions))
+        )
+
+    # Expand the list
     files = []
-    input = Path(input)
-    if input.is_dir():
-        for path in input.rglob(f"*.{extension}"):
-            files.append(str(path))
-    else:
-        files.append(str(input))
+    for path in input:
+        if path.is_dir():
+            # If it's a directory, find all files with the specified extensions
+            files.extend([file for file in path.rglob("*") if matches_extensions(file)])
+        else:
+            # If it's not a directory, add the file to the list
+            if matches_extensions(path):
+                files.append(path)
 
     # TODO get from module.hparams.embedding_model
     embedding_model = NucleotideTransformerEmbedding()
