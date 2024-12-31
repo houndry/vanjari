@@ -26,14 +26,50 @@ from .metrics import ICTVTorchMetric, RANKS
 
 class Vanjari(ta.TorchApp):
     @ta.tool
+    def ensemble_csvs(
+        self,
+        input:list[Path]=ta.Param(..., help="CSV files to ensemble"),
+        output:Path=ta.Param(..., help="Path to save the output CSV"),
+        stem_only:bool=True, # TODO explain
+    ):
+        dfs = [pd.read_csv(csv) for csv in input]
+
+        if stem_only:
+            for df in dfs:
+                df['SequenceID'] = df['SequenceID'].apply(lambda x: x.split(".")[0])
+
+        output_df = dfs[0].copy()
+
+        for df in dfs[1:]:
+            # go through output_df and if the df has a higher score in the genus column, replace the row
+            for index, row in output_df.iterrows():
+                sequence_id = row['SequenceID']
+                df_row = df[df['SequenceID'] == sequence_id]
+                if len(df_row) == 0:
+                    continue
+
+                score_column = "Genus_score"
+                if df_row[score_column].values[0] > row[score_column]:
+                    output_df.loc[index] = df_row.values[0]
+
+            # if there are sequences in the new dataframe that are not in the output dataframe, add them
+            new_sequences = set(df['SequenceID']) - set(output_df['SequenceID'])
+            print(f"Adding {len(new_sequences)} new sequences")
+            new_df = df[df['SequenceID'].isin(new_sequences)]
+            output_df = pd.concat([output_df, new_df], ignore_index=True)
+
+        output.parent.mkdir(parents=True, exist_ok=True)
+        output_df.to_csv(output, index=False)
+
+    @ta.tool
     def evaluate_csv(
         self, 
         prediction:Path=None, # TODO explain
         truth:Path=None, # TODO explain
         stem_only:bool=True, # TODO explain
     ):
-        prediction_df = pd.read_csv(prediction)
-        truth_df = pd.read_csv(truth)
+        prediction_df = pd.read_csv(prediction, na_values="NA")
+        truth_df = pd.read_csv(truth, na_values="NA")
 
         if stem_only:
             prediction_df['SequenceID'] = prediction_df['SequenceID'].apply(lambda x: x.split(".")[0])
@@ -210,7 +246,7 @@ class VanjariCorgi(Vanjari, Corgi):
         self,
         results,
         output_csv: Path = ta.Param(default=None, help="A path to output the results as a CSV."),
-        probability_csv: Path = ta.Param(default=None, help="A path to output the probabilities as a CSV."),
+        output_feather: Path = ta.Param(default=None, help="A path to output the probabilities as a Feather dataframe."),
         image_dir: Path = ta.Param(default=None, help="A directory to output the results as images."),
         image_threshold:float = 0.005,
         prediction_threshold:float = ta.Param(default=0.5, help="The threshold value for making hierarchical predictions."),
@@ -249,6 +285,11 @@ class VanjariCorgi(Vanjari, Corgi):
             self.node_to_str(node)
             for node in predictions
         ]
+
+        if output_feather:
+            output_feather.parent.mkdir(parents=True, exist_ok=True)
+            print(f"Writing probabilities to {output_feather}")
+            results_df.to_feather(output_feather)
 
         # Sort out headers = 
         header_string = "SequenceID,Realm (-viria),Realm_score,Subrealm (-vira),Subrealm_score,Kingdom (-virae),Kingdom_score,Subkingdom (-virites),Subkingdom_score,Phylum (-viricota),Phylum_score,Subphylum (-viricotina),Subphylum_score,Class (-viricetes),Class_score,Subclass (-viricetidae),Subclass_score,Order (-virales),Order_score,Suborder (-virineae),Suborder_score,Family (-viridae),Family_score,Subfamily (-virinae),Subfamily_score,Genus (-virus),Genus_score,Subgenus (-virus),Subgenus_score,Species (binomial),Species_score"
@@ -534,7 +575,7 @@ class VanjariNT(Vanjari, Bloodhound):
         self, 
         results, 
         output_csv: Path = ta.Param(default=None, help="A path to output the results as a CSV."),
-        probability_csv: Path = ta.Param(default=None, help="A path to output the probabilities as a CSV."),
+        output_feather: Path = ta.Param(default=None, help="A path to output the probabilities as a Feather dataframe."),
         image_dir: Path = ta.Param(default=None, help="A path to output the results as images."),
         image_threshold:float = 0.005,
         prediction_threshold:float = ta.Param(default=0.0, help="The threshold value for making hierarchical predictions."),
@@ -556,10 +597,10 @@ class VanjariNT(Vanjari, Bloodhound):
         # sort to get original order
         results_df = results_df.sort_values(by="original_index").drop(columns=["original_index"]).reset_index()
 
-        if probability_csv:
-            probability_csv.parent.mkdir(parents=True, exist_ok=True)
-            print(f"Writing probabilities to {probability_csv}")
-            results_df.to_csv(probability_csv, index=False)
+        if output_feather:
+            output_feather.parent.mkdir(parents=True, exist_ok=True)
+            print(f"Writing probabilities to {output_feather}")
+            results_df.to_feather(output_feather)
         
         classification_probabilities = torch.as_tensor(results_df[category_names].to_numpy()) 
 
