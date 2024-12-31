@@ -6,13 +6,13 @@ Vanjari
 
 .. start-badges
 
-|testing badge| |docs badge| |black badge| |torchapp badge|
+|black badge| |torchapp badge|
 
-.. |testing badge| image:: https://github.com/bloodhound-devs/vanjari/actions/workflows/testing.yml/badge.svg
-    :target: https://github.com/bloodhound-devs/vanjari/actions
+.. .. |testing badge| image:: https://github.com/bloodhound-devs/vanjari/actions/workflows/testing.yml/badge.svg
+..     :target: https://github.com/bloodhound-devs/vanjari/actions
 
-.. |docs badge| image:: https://github.com/bloodhound-devs/vanjari/actions/workflows/docs.yml/badge.svg
-    :target: https://bloodhound-devs.github.io/bloodhound
+.. .. |docs badge| image:: https://github.com/bloodhound-devs/vanjari/actions/workflows/docs.yml/badge.svg
+..     :target: https://bloodhound-devs.github.io/bloodhound
     
 .. |black badge| image:: https://img.shields.io/badge/code%20style-black-000000.svg
     :target: https://github.com/psf/black
