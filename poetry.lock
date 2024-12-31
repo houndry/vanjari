@@ -423,7 +423,7 @@ wandb = "^0.17.0"
 type = "git"
 url = "git@github.com:bloodhound-devs/bloodhound.git"
 reference = "prediction"
-resolved_reference = "bf258d290c7b7233e38c98d5bd261db1974b739c"
+resolved_reference = "09d3591b36377a27ac0e9f2da48af8dfc8bc8c33"
 
 [[package]]
 name = "certifi"

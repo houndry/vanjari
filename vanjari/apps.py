@@ -593,8 +593,7 @@ class VanjariNT(VanjariBase, Bloodhound):
     def prediction_dataloader(
         self,
         module,
-        input:Path=ta.Param(help="A path to a directory of fasta files or a single fasta file."),
-        extension:str='fasta',
+        input:list[Path]=ta.Param(help="Fasta file(s) or a directory of Fasta files."),
         memmap_array_path:Path=None, # TODO explain
         memmap_index:Path=None, # TODO explain
         model_name:str="InstaDeepAI/nucleotide-transformer-v2-500m-multi-species",  # hack
@@ -607,7 +606,6 @@ class VanjariNT(VanjariBase, Bloodhound):
 
         memmap_array, accessions = build_memmap_array(
             input=input,
-            extension=extension,
             memmap_array_path=memmap_array_path,
             memmap_index=memmap_index,
             model_name=model_name,
