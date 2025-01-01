@@ -191,7 +191,7 @@ class VanjariBase(ta.TorchApp):
         rank_to_header = {header.split(" ")[0]:header for header in header_names[1::2]}
         
         df = pd.read_csv(input)
-        for rank in RANKS:
+        for rank in track(RANKS):
             column = rank_to_header[rank]
             score_column = rank+"_score"
             # make sure the column is a float
