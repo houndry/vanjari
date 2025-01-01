@@ -19,6 +19,7 @@ Vanjari is a tool for the classification of viruses using neural networks. It us
    :caption: Contents:
 
    quickstart
+   ictv
    api
    credits
 
