@@ -378,6 +378,9 @@ class VanjariFast(VanjariBase, Corgi):
 
         # sort to get original order
         results_df = results_df.sort_values(by="chunk_index").drop(columns=["chunk_index"]).reset_index()
+
+        # sort according to sequence id
+        results_df = results_df.sort_values(by="SequenceID").reset_index(drop=True)
         
         if output_feather:
             output_feather.parent.mkdir(parents=True, exist_ok=True)
@@ -688,6 +691,9 @@ class VanjariNT(VanjariBase, Bloodhound):
         # sort to get original order
         results_df = results_df.sort_values(by="original_index").drop(columns=["original_index"]).reset_index()
 
+        # sort according to sequence id
+        results_df = results_df.sort_values(by="SequenceID").reset_index(drop=True)
+
         if output_feather:
             output_feather.parent.mkdir(parents=True, exist_ok=True)
             print(f"Writing probabilities to {output_feather}")
@@ -707,7 +713,7 @@ class Vanjari(VanjariNT):
         self,
         max_items:int=0,
         num_workers:int=0,
-        stack_size:int=16,
+        stack_size:int=48,
         validation_partition:int=0,
         seed:int = 42,
         train_all:bool = False,
@@ -780,7 +786,7 @@ class Vanjari(VanjariNT):
         return 1
 
     @ta.method
-    def build_dataset_sequence_ids(self, memmap_array, accessions, stack_size:int=32, overlap:int=8, **kwargs):
+    def build_dataset_sequence_ids(self, memmap_array, accessions, stack_size:int=48, overlap:int=24, **kwargs):
         stacks, sequence_ids = build_stacks(accessions, stack_size, overlap)
         dataset = VanjariStackPredictionDataset(array=memmap_array, stacks=stacks)
         return dataset, sequence_ids
