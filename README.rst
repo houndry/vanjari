@@ -76,7 +76,7 @@ To use a Vanjari model without computing the embeddings, use the `vanjari-fast` 
 Advanced Usage
 --------------
 
-For more advanced usage, see the help:
+More documentation is coming with advanced usage. For now, please see the help:
 
 .. code-block:: bash
 
@@ -84,6 +84,31 @@ For more advanced usage, see the help:
     vanjari-tools --help
     vanjari-fast --help
     vanjari-fast-tools --help
+
+
+ICTV Challenge
+--------------
+
+This project is submitted as part of the 2024 ICTV Computational Virus Taxonomy Challenge.
+
+The results are in ``./results``:
+
+- ``results/vanjari-0.1.csv``: The results for the main Vanjari model.
+- ``results/vanjari-fast-0.1.csv``: The results for the fast Vanjari model.
+
+To reproduce the results, use the following command to download the dataset:
+
+.. code-block:: bash
+
+    wget "https://github.com/ICTV-VBEG/ICTV-TaxonomyChallenge/raw/refs/heads/main/dataset/dataset_challenge.tar.gz?download=" -O ictv-challenge.tar.gz
+    tar zxvf ictv-challenge.tar.gz
+
+This will create a directory called ``dataset_challenge`` with the sequences. Now run the following commands to classify the sequences using the two Vanjari models:
+
+.. code-block:: bash
+
+    vanjari --input dataset_challenge/ --output-csv ictv-challenge-vanjari.csv --memmap-array-path ictv-challenge.npy --memmap-index ictv-challenge.txt
+    vanjari-fast --input dataset_challenge/ --output-csv ictv-challenge-vanjari-fast.csv
 
 .. end-quickstart
 
