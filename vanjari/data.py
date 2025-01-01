@@ -171,7 +171,7 @@ def build_memmap_array(
     input:list[Path],
     memmap_array_path:Path=None,
     memmap_index:Path=None,
-    model_name:str="InstaDeepAI/nucleotide-transformer-v2-500m-multi-species",
+    model_name:str="",
     length:int=1000,
 ) -> tuple[np.memmap, list[str]]:
     # Get list of fasta files
