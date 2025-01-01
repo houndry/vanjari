@@ -6,6 +6,7 @@ from torch.utils.data import DataLoader
 from torchmetrics import Metric
 import pyfastx
 from rich.progress import track
+import pickle
 
 import torchapp as ta
 from torchapp.download import cached_download
@@ -132,6 +133,46 @@ class VanjariBase(ta.TorchApp):
 
         output.parent.mkdir(parents=True, exist_ok=True)
         output_df.to_csv(output, index=False)
+
+    @ta.tool
+    def ensemble_feathers(
+        self,
+        input:list[Path]=ta.Param(..., help="Feather files to ensemble"),
+        output_feather:Path=ta.Param(..., help="Path to save the output Feather"),
+        output_csv:Path=ta.Param(..., help="Path to save the output CSV"),
+        stem_only:bool=True,
+    ):
+        classification_tree_path = Path(__file__).parent / "data/tree.pkl"
+        with open(classification_tree_path, "rb") as f:
+            classification_tree = pickle.load(f)
+
+        dfs = [pd.read_feather(feather) for feather in input]
+
+        if stem_only:
+            for df in dfs:
+                df['SequenceID'] = df['SequenceID'].apply(lambda x: x.split(".")[0])
+
+        category_names = [column for column in df[0].columns if column not in ["index", "SequenceID", "original_id", "file", "chunk", "greedy_prediction"]]
+
+        # Concatenate all dataframes, aligning by index
+        aligned = pd.concat([df[category_names] for df in dfs])
+
+        # Group by the index and compute the mean (ignoring NaN values)
+        averaged_columns = aligned.groupby(aligned.index).mean()
+
+        # Combine all unique rows from all dataframes for non-averaged columns
+        other_columns = pd.concat([df.drop(category_names, axis=1, errors='ignore') for df in dfs]).groupby(level=0).first()
+
+        # Merge averaged columns with other columns
+        output_df = pd.concat([other_columns, averaged_columns], axis=1).reset_index()
+
+        if output_feather:
+            output_feather.parent.mkdir(parents=True, exist_ok=True)
+            print(f"Writing probabilities to {output_feather}")
+            output_df.to_feather(output_feather)
+        
+        if output_csv:
+            build_ictv_dataframe(output_df, classification_tree, output_csv=output_csv)
 
     @ta.tool
     def evaluate_csv(
