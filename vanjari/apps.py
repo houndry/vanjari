@@ -152,7 +152,7 @@ class VanjariBase(ta.TorchApp):
             for df in dfs:
                 df['SequenceID'] = df['SequenceID'].apply(lambda x: x.split(".")[0])
 
-        category_names = [column for column in df[0].columns if column not in ["index", "SequenceID", "original_id", "file", "chunk", "greedy_prediction"]]
+        category_names = [self.node_to_str(node) for node in classification_tree.node_list_softmax if not node.is_root]
 
         # Concatenate all dataframes, aligning by index
         aligned = pd.concat([df[category_names] for df in dfs])
@@ -164,7 +164,7 @@ class VanjariBase(ta.TorchApp):
         other_columns = pd.concat([df.drop(category_names, axis=1, errors='ignore') for df in dfs]).groupby(level=0).first()
 
         # Merge averaged columns with other columns
-        output_df = pd.concat([other_columns, averaged_columns], axis=1).reset_index()
+        output_df = pd.concat([other_columns, averaged_columns], axis=1).reset_index().drop(columns=['level_0'])
 
         if output_feather:
             output_feather.parent.mkdir(parents=True, exist_ok=True)
