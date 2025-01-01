@@ -175,6 +175,31 @@ class VanjariBase(ta.TorchApp):
             build_ictv_dataframe(output_df, classification_tree, output_csv=output_csv)
 
     @ta.tool
+    def increase_threshold(
+        self, 
+        input:Path=ta.Param(..., help="Path to the input CSV file"),
+        output:Path=ta.Param(..., help="Path to save the output CSV file"),
+        threshold:float=ta.Param(..., help="The new threshold between 0 and 1"),
+    ):
+        header_string = "SequenceID,Realm (-viria),Realm_score,Subrealm (-vira),Subrealm_score,Kingdom (-virae),Kingdom_score,Subkingdom (-virites),Subkingdom_score,Phylum (-viricota),Phylum_score,Subphylum (-viricotina),Subphylum_score,Class (-viricetes),Class_score,Subclass (-viricetidae),Subclass_score,Order (-virales),Order_score,Suborder (-virineae),Suborder_score,Family (-viridae),Family_score,Subfamily (-virinae),Subfamily_score,Genus (-virus),Genus_score,Subgenus (-virus),Subgenus_score,Species (binomial),Species_score"        
+        header_names = header_string.split(",")
+        rank_to_header = {header.split(" ")[0]:header for header in header_names[1::2]}
+        
+        df = pd.read_csv(input)
+        for rank in RANKS:
+            column = rank_to_header[rank]
+            score_column = rank+"_score"
+            # make sure the column is a float
+            scores = df[score_column].astype(float)
+            df[column] = np.where(scores >= threshold, df[column], "NA")
+            df[score_column] = np.where(scores >= threshold, df[score_column], "NA")
+
+        breakpoint()
+
+        output.parent.mkdir(parents=True, exist_ok=True)
+        df.to_csv(output, index=False)
+
+    @ta.tool
     def evaluate_csv(
         self, 
         prediction:Path=None, # TODO explain
