@@ -22,15 +22,19 @@ class NucleotideTransformerEmbedding(DNAEmbedding):
 
         if not self.model_name:
             cache_dir = Path(user_cache_dir("torchapps"), "Vanjari")
-            local_path = cache_dir/"nucleotide-transformer-v2-500m-virus"
+            local_path = cache_dir/"nucleotide-transformer-v2-500m-virus/checkpoint-182000"
             if not local_path.exists():
                 url = f"https://figshare.unimelb.edu.au/ndownloader/files/51434933"
-                tarball_path = cached_download(url, local_path=cache_dir / "nucleotide-transformer-v2-500m-virus.tar.gz")
+                tarball_path = cache_dir / "nucleotide-transformer-v2-500m-virus.tar.gz"
+                cached_download(url, local_path=tarball_path)
 
                 # extract the tarball to local_path
                 import tarfile
                 with tarfile.open(tarball_path) as tar:
-                    tar.extractall(local_path)
+                    tar.extractall(cache_dir/"nucleotide-transformer-v2-500m-virus")
+
+                import shutil
+                shutil.rmtree(tarball_path)
 
             self.model_name = str(local_path)
 

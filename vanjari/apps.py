@@ -698,10 +698,10 @@ class VanjariNT(VanjariBase, Bloodhound):
             # get temporary directory
             import tempfile
             
-            self.temp_dir = Path(tempfile.gettempdir())
-            print(f"Using temporary directory {temp_dir} to store the memmap array with embeddings")
-            memmap_array_path = memmap_array / "embeddings.npy"
-            memmap_index = memmap_array / "embeddings.txt"
+            self.temp_dir = Path(tempfile.mkdtemp())
+            print(f"Using temporary directory {self.temp_dir} to store the memmap array with embeddings")
+            memmap_array_path = self.temp_dir / "embeddings.npy"
+            memmap_index = self.temp_dir / "embeddings.txt"
 
         memmap_array, accessions = build_memmap_array(
             input=input,
