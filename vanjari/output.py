@@ -23,23 +23,27 @@ def build_ictv_dataframe(probabilities_df, classification_tree, prediction_thres
 
     rank_to_header = {header.split(" ")[0]:header for header in header_names[1::2]}
 
-    output_df = pd.DataFrame(columns=header_names)
+    data = []
 
     for index, node in track(enumerate(predictions), description="Building CSV output", total=len(predictions)):
-        output_df.loc[index, "SequenceID"] = probabilities_df.loc[index, "SequenceID"]
+        new_row = {"SequenceID": probabilities_df.loc[index, "SequenceID"]}
+        
         current_probability = 1.0
         for ancestor in node.ancestors[1:] + (node,):
             if ancestor.rank == "Root":
                 continue
             header = rank_to_header[ancestor.rank]
-            output_df.loc[index, header] = ancestor.name
+
+            new_row[header] = ancestor.name
             
             if ancestor.name in probabilities_df.columns:
                 current_probability = probabilities_df.loc[index, ancestor.name]
 
-            output_df.loc[index, ancestor.rank+"_score"] = current_probability                    
-
-    output_df = output_df.fillna("NA").replace("", "NA")
+            new_row[ancestor.rank+"_score"] = current_probability
+        
+        data.append(new_row)
+    
+    output_df = pd.DataFrame(data, columns=header_names).fillna("NA").replace("", "NA")
 
     if output_csv:
         print(f"Writing inference results to: {output_csv}")
