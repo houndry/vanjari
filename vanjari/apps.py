@@ -115,7 +115,7 @@ class VanjariBase(ta.TorchApp):
 
         for df in dfs[1:]:
             # go through output_df and if the df has a higher score in the genus column, replace the row
-            for index, row in output_df.iterrows():
+            for index, row in track(output_df.iterrows(), total=len(output_df)):
                 sequence_id = row['SequenceID']
                 df_row = df[df['SequenceID'] == sequence_id]
                 if len(df_row) == 0:
