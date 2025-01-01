@@ -93,7 +93,7 @@ This project is submitted as part of the 2024 `ICTV Computational Virus Taxonomy
 
 The results are in ``./results``:
 
-- ``results/vanjari-0.1.csv``: The results for the main Vanjari model.
+- `results/vanjari-0.1.csv <https://github.com/bloodhound-devs/vanjari/blob/main/results/vanjari-0.1.csv>`_: The results for the main Vanjari model.
 - ``results/vanjari-fast-0.1.csv``: The results for the fast Vanjari model.
 
 To reproduce the results, use the following command to download the dataset:
