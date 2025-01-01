@@ -540,7 +540,7 @@ wandb = "^0.17.0"
 
 [package.source]
 type = "git"
-url = "git@github.com:bloodhound-devs/bloodhound.git"
+url = "https://github.com/bloodhound-devs/bloodhound.git"
 reference = "prediction"
 resolved_reference = "09d3591b36377a27ac0e9f2da48af8dfc8bc8c33"
 
@@ -7055,4 +7055,4 @@ type = ["pytest-mypy"]
 [metadata]
 lock-version = "2.0"
 python-versions = ">=3.10,<3.12"
-content-hash = "8f5d0554cd677f690ceafc43309c9b7b1306b3249ba83324747f5d32c30bb467"
+content-hash = "46250f1b953f6d62402883d92a77ef5512d7da356910a07e2ca4ef939984c2e8"
