@@ -89,7 +89,7 @@ More documentation is coming with advanced usage. For now, please see the help:
 ICTV Challenge
 --------------
 
-This project is submitted as part of the 2024 ICTV Computational Virus Taxonomy Challenge.
+This project is submitted as part of the 2024 `ICTV Computational Virus Taxonomy Challenge <https://ictv-vbeg.github.io/ICTV-TaxonomyChallenge/>`_.
 
 The results are in ``./results``:
 
