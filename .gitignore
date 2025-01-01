@@ -176,3 +176,4 @@ wandb/*
 outputs/*
 figures/*
 output/*
+*.feather
