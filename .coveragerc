@@ -1,0 +1,5 @@
+[run]
+source = vanjari
+
+[report]
+precision = 2
