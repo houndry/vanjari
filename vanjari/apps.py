@@ -330,6 +330,7 @@ class VanjariFast(VanjariBase, Corgi):
         # Average over chunks
         results_df["chunk_index"] = results_df.index
         results_df = results_df.groupby(["file", "SequenceID"]).mean().reset_index()
+        # results_df["file"] = results_df["file"].astype(str)
 
         # sort to get original order
         results_df = results_df.sort_values(by="chunk_index").drop(columns=["chunk_index"]).reset_index()
