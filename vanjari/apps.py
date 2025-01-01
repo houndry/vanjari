@@ -652,6 +652,16 @@ class VanjariNT(VanjariBase, Bloodhound):
         length = module.hparams.length
         self.classification_tree = module.hparams.classification_tree
 
+        self.temp_dir = None
+        if not memmap_array_path:
+            # get temporary directory
+            import tempfile
+            
+            self.temp_dir = Path(tempfile.gettempdir())
+            print(f"Using temporary directory {temp_dir} to store the memmap array with embeddings")
+            memmap_array_path = memmap_array / "embeddings.npy"
+            memmap_index = memmap_array / "embeddings.txt"
+
         memmap_array, accessions = build_memmap_array(
             input=input,
             memmap_array_path=memmap_array_path,
@@ -700,6 +710,11 @@ class VanjariNT(VanjariBase, Bloodhound):
             results_df.to_feather(output_feather)
         
         build_ictv_dataframe(results_df, self.classification_tree, prediction_threshold, image_threshold=image_threshold, output_csv=output_csv, image_dir=image_dir)
+
+        # Delete temp dir if it was created
+        if self.temp_dir and self.temp_dir.exists():
+            import shutil
+            shutil.rmtree(self.temp_dir)
 
         return results_df
 
