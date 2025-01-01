@@ -508,7 +508,7 @@ class VanjariNT(VanjariBase, Bloodhound):
         output_dir:Path=ta.Param(default=..., help="A directory to store the output which includes the memmap array, the listing of accessions and an error log."),
         max_accessions:int=ta.Param(0, help="Maximum number of accessions to add"),
         fasta_dir:Path=ta.Param(..., help="Path to the FASTA directory"),
-        model_name:str="InstaDeepAI/nucleotide-transformer-v2-500m-multi-species",  
+        model_name:str=ta.Param("", help="The name of the embedding model. By default, it uses the Vanjari pretrained language model based on nucleotide-transformer-v2-500m"),
         length:int=1000,      
     ):
         seqtree_path = Path(seqtree)
@@ -641,7 +641,7 @@ class VanjariNT(VanjariBase, Bloodhound):
         input:list[Path]=ta.Param(help="Fasta file(s) or a directory of Fasta files."),
         memmap_array_path:Path=None, # TODO explain
         memmap_index:Path=None, # TODO explain
-        model_name:str="InstaDeepAI/nucleotide-transformer-v2-500m-multi-species",  # hack
+        model_name:str=ta.Param("", help="The name of the embedding model. By default, it uses the Vanjari pretrained language model based on nucleotide-transformer-v2-500m"),
         batch_size:int = 1,
         num_workers: int = 0,
         **kwargs,

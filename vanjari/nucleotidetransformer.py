@@ -1,63 +1,38 @@
-from enum import Enum
-import typer
 import torch
 from torchapp.cli import method
-from bloodhound.embedding import Embedding
 from transformers import AutoTokenizer, AutoModelForMaskedLM
 import torch
+from pathlib import Path
+from appdirs import user_cache_dir
+from torchapp.download import cached_download
 
 from .dnaembedding import DNAEmbedding
-
-# class NucleotideTransformerLayers(Enum):
-#     T6 = "6"
-#     T12 = "12"
-#     T30 = "30"
-#     T33 = "33"
-#     T36 = "36"
-#     T48 = "48"
-
-#     @classmethod
-#     def from_value(cls, value: int|str) -> "NucleotideTransformerLayers":
-#         for layer in cls:
-#             if layer.value == str(value):
-#                 return layer
-#         return None
-    
-#     def __int__(self):
-#         return int(self.value)
-    
-#     def __str__(self):
-#         return str(self.value)
-
-#     def model_name(self) -> str:
-#         match self:
-#             case NucleotideTransformerLayers.T48:
-#                 return "NucleotideTransformer2_t48_15B_UR50D"
-#             case NucleotideTransformerLayers.T36:
-#                 return "NucleotideTransformer2_t36_3B_UR50D"
-#             case NucleotideTransformerLayers.T33:
-#                 return "NucleotideTransformer2_t33_650M_UR50D"
-#             case NucleotideTransformerLayers.T30:
-#                 return "NucleotideTransformer2_t30_150M_UR50D"
-#             case NucleotideTransformerLayers.T12:
-#                 return "NucleotideTransformer2_t12_35M_UR50D"
-#             case NucleotideTransformerLayers.T6:
-#                 return "NucleotideTransformer2_t6_8M_UR50D"
-
-#     def get_model_alphabet(self) -> tuple["NucleotideTransformer2", "Alphabet"]:
-#         return torch.hub.load("facebookresearch/NucleotideTransformer:main", self.model_name())
 
 
 class NucleotideTransformerEmbedding(DNAEmbedding):
     @method
     def setup(
         self, 
-        model_name:str="InstaDeepAI/nucleotide-transformer-v2-500m-multi-species",
+        model_name:str="",
     ):
         self.model_name = model_name
         self.model = None
         self.device = None
         self.tokenizer = None
+
+        if not self.model_name:
+            cache_dir = Path(user_cache_dir("torchapps"), "Vanjari")
+            local_path = cache_dir/"nucleotide-transformer-v2-500m-virus"
+            if not local_path.exists():
+                url = f"https://figshare.unimelb.edu.au/ndownloader/files/51434933"
+                tarball_path = cached_download(url, local_path=cache_dir / "nucleotide-transformer-v2-500m-virus.tar.gz")
+
+                # extract the tarball to local_path
+                import tarfile
+                with tarfile.open(tarball_path) as tar:
+                    tar.extractall(local_path)
+
+            self.model_name = str(local_path)
 
     def __getstate__(self):
         return dict(max_length=self.max_length, model_name=str(self.model_name))
@@ -95,3 +70,5 @@ class NucleotideTransformerEmbedding(DNAEmbedding):
         embeddings = torch_outs['hidden_states'][-1].mean(dim=1)[0].cpu().detach()
 
         return embeddings
+
+
