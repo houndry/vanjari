@@ -25,6 +25,8 @@ from .metrics import ICTVTorchMetric, RANKS
 from .output import build_ictv_dataframe
 
 
+PREDICTION_THRESHOLD_DEFAULT = 0.0
+
 
 class VanjariBase(ta.TorchApp):
     @ta.tool
@@ -137,6 +139,8 @@ class VanjariBase(ta.TorchApp):
         prediction:Path=None, # TODO explain
         truth:Path=None, # TODO explain
         stem_only:bool=True, # TODO explain
+        threshold_plot:Path=None, # TODO explain
+        show:bool=False, # TODO explain
     ):
         prediction_df = pd.read_csv(prediction, na_values="NA")
         truth_df = pd.read_csv(truth, na_values="NA")
@@ -169,6 +173,46 @@ class VanjariBase(ta.TorchApp):
             data_available = (prediction_df[column] != "NA") & (truth_df[column] != "NA")
             result = (prediction_df[column][data_available] == truth_df[column][data_available]).mean()
             print( rank, result*100 )
+
+        if threshold_plot or show:
+            column = rank_to_header["Genus"]
+            data_available = (prediction_df[column] != "NA") & (truth_df[column] != "NA")
+
+            df = pd.DataFrame({"actual": truth_df[column][data_available], "predicted": prediction_df[column][data_available], "probability": prediction_df["Genus_score"][data_available]})
+            df = df.sort_values("probability", ascending=False)
+
+            df["classified"] = (np.arange(len(df))+1)/len(df)
+            df["correct"] = (df["actual"] == df["predicted"]).cumsum()/(np.arange(len(df))+1)
+
+            import plotly.graph_objects as go
+            width = 730
+            height = 690
+
+            fig = go.Figure()
+            fig.add_trace(go.Scatter(x=df["probability"], y=df["correct"], mode='lines', name='Correct'))
+            fig.add_trace(go.Scatter(x=df["probability"], y=df["classified"], mode='lines', name='Classified'))
+
+            fig.update_xaxes(title="Threshold")
+            fig.update_yaxes(title="Percentage of dataset", tickformat=".0%", range=[0, 1])
+            fig.update_layout(
+                autosize=False,
+                width=width,
+                height=height,
+                legend=dict(
+                    yanchor="bottom",
+                    y=0.01,
+                    xanchor="left",
+                    x=0.01,
+                ),
+            )
+            fig.update_layout(margin=dict(l=0, r=0, t=0, b=0))
+
+            if show:
+                fig.show()
+            
+            if threshold_plot:
+                print(f"Writing threshold plot to {threshold_plot}")
+                fig.write_image(threshold_plot)
 
     @ta.tool
     def filter_memmap(
@@ -312,7 +356,7 @@ class VanjariFast(VanjariBase, Corgi):
         output_feather: Path = ta.Param(default=None, help="A path to output the probabilities as a Feather dataframe."),
         image_dir: Path = ta.Param(default=None, help="A directory to output the results as images."),
         image_threshold:float = 0.005,
-        prediction_threshold:float = ta.Param(default=0.5, help="The threshold value for making hierarchical predictions."),
+        prediction_threshold:float = ta.Param(default=PREDICTION_THRESHOLD_DEFAULT, help="The threshold value for making hierarchical predictions."),
         **kwargs,
     ):
         assert self.classification_tree # This should be saved from the learner
@@ -625,7 +669,7 @@ class VanjariNT(VanjariBase, Bloodhound):
         output_feather: Path = ta.Param(default=None, help="A path to output the probabilities as a Feather dataframe."),
         image_dir: Path = ta.Param(default=None, help="A path to output the results as images."),
         image_threshold:float = 0.005,
-        prediction_threshold:float = ta.Param(default=0.0, help="The threshold value for making hierarchical predictions."),
+        prediction_threshold:float = ta.Param(default=PREDICTION_THRESHOLD_DEFAULT, help="The threshold value for making hierarchical predictions."),
         **kwargs,
     ):        
         assert self.classification_tree
