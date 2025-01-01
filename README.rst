@@ -50,6 +50,10 @@ For more information see:
 
     vanjari --input virus.fa --output-csv virus-predictions.csv
 
+.. note::
+
+    The first time that Vanjari is run, it will download the model weights. These are large files and may take some time to download.
+
 This outputs a CSV file with the predictions for each virus in the input file.
 
 This will build embeddings for all sequences in the input file and then classify them using the neural network.
@@ -62,12 +66,20 @@ To save the embeddings to disk as a Numpy memmap array, provide a location for t
 
 If the memmap and index exist already, then they will be used without recomputing the embeddings.
 
-The input file can also be a directory of FASTA files:
+The input file can also be a directory of FASTA files.
+
+Thresholds
+----------
+
+You can set a threshold for the predictions using the ``--prediction-threshold`` option. This must be a value between 0 and 1. 
+If the probability of a classification at any rank in the taxonomy is below this threshold, the classification will be set to "NA".
+
+The threshold can be increased later using the ``vanjari-tools increase-threshold`` command:
 
 Faster Inference
 ----------------
 
-To use a Vanjari model without computing the embeddings, use the `vanjari-fast` command which uses a simplier convolutional neural network:
+To use a Vanjari model without computing the embeddings, use the ``vanjari-fast`` command which uses a simplier convolutional neural network:
 
 .. code-block:: bash
 
@@ -85,16 +97,27 @@ More documentation is coming with advanced usage. For now, please see the help:
     vanjari-fast --help
     vanjari-fast-tools --help
 
+.. end-quickstart
+
 
 ICTV Challenge
 --------------
+
+.. start-ictv
 
 This project is submitted as part of the 2024 `ICTV Computational Virus Taxonomy Challenge <https://ictv-vbeg.github.io/ICTV-TaxonomyChallenge/>`_.
 
 The results are in ``./results``:
 
 - `results/vanjari-0.1.csv <https://github.com/bloodhound-devs/vanjari/blob/main/results/vanjari-0.1.csv>`_: The results for the main Vanjari model.
-- ``results/vanjari-fast-0.1.csv``: The results for the fast Vanjari model.
+- `results/vanjari-fast-0.1.csv <https://github.com/bloodhound-devs/vanjari/blob/main/results/vanjari-fast-0.1.csv>`_: The results for the fast Vanjari model.
+- `results/vanjari-ensemble-0.1.csv <https://github.com/bloodhound-devs/vanjari/blob/main/results/vanjari-ensemble-0.1.csv>`_: The results for the fast Vanjari model.
+
+There are also versions of the results with a threshold of 0.5:
+
+- `results/vanjari-0.1-threshold0.5.csv <https://github.com/bloodhound-devs/vanjari/blob/main/results/vanjari-0.1-threshold0.5.csv>`_
+- `results/vanjari-fast-0.1-threshold0.5.csv <https://github.com/bloodhound-devs/vanjari/blob/main/results/vanjari-fast-0.1-threshold0.5.csv>`_
+- `results/vanjari-ensemble-0.1-threshold0.5.csv <https://github.com/bloodhound-devs/vanjari/blob/main/results/vanjari-ensemble-0.1-threshold0.5.csv>`_
 
 To reproduce the results, use the following command to download the dataset:
 
@@ -107,10 +130,19 @@ This will create a directory called ``dataset_challenge`` with the sequences. No
 
 .. code-block:: bash
 
-    vanjari --input dataset_challenge/ --output-csv ictv-challenge-vanjari.csv --memmap-array-path ictv-challenge.npy --memmap-index ictv-challenge.txt
-    vanjari-fast --input dataset_challenge/ --output-csv ictv-challenge-vanjari-fast.csv
+    # Generage results for single models
+    vanjari --input dataset_challenge/ --output-csv ictv-challenge/vanjari-0.1.csv --memmap-array-path ictv-challenge/embeddings.npy --memmap-index ictv-challenge/embeddings.txt
+    vanjari-fast --input dataset_challenge/ --output-csv ictv-challenge/vanjari-fast-0.1.csv
 
-.. end-quickstart
+    # Generate results for ensemble
+    vanjari-tools ensemble-csvs --input ictv-challenge/vanjari-0.1.csv --input ictv-challenge/vanjari-fast-0.1.csv --output ictv-challenge/vanjari-ensemble-0.1.csv
+
+    # Set the threshold for the all results to 0.5
+    vanjari-tools increase-threshold --input ictv-challenge/vanjari-0.1.csv --output ictv-challenge/vanjari-0.1-threshold0.5.csv --threshold 0.5
+    vanjari-tools increase-threshold --input ictv-challenge/vanjari-fast-0.1.csv --output ictv-challenge/vanjari-fast-0.1-threshold0.5.csv --threshold 0.5
+    vanjari-tools increase-threshold --input ictv-challenge/vanjari-ensemble-0.1.csv --output ictv-challenge/vanjari-ensemble-0.1-threshold0.5.csv --threshold 0.5
+
+.. end-ictv
 
 
 Credits
@@ -118,12 +150,7 @@ Credits
 
 .. start-credits
 
-This package was created by:
-
-- Robert Turnbull (University of Melbourne)
-- George Spyro Bouras (University of Adelaide)
-- Wytamma Wirth (University of Melbourne)
-- Torsten Seemann (University of Melbourne)
+This package was created by members of the University of Melbourne and the University of Adelaide. Citation details to come.
 
 
 .. end-credits

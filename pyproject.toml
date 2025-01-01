@@ -12,7 +12,7 @@ numpy = "<2.0.0"
 hierarchicalsoftmax = {git = "https://github.com/rbturnbull/hierarchicalsoftmax.git", branch="torchmetrics"}
 h5py = "^3.8.0"
 bio-corgi = {git = "https://github.com/rbturnbull/corgi.git", branch="lightning"}
-bloodhound = {git = "git@github.com:bloodhound-devs/bloodhound.git", branch="prediction"}
+bloodhound = {git = "https://github.com/bloodhound-devs/bloodhound.git", branch="prediction"}
 pyfastx = "^1.1.0"
 openpyxl = "^3.1.5"
 
