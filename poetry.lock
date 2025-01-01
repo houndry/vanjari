@@ -428,7 +428,7 @@ torchapp = {git = "https://github.com/rbturnbull/torchapp.git", branch = "lightn
 type = "git"
 url = "https://github.com/rbturnbull/corgi.git"
 reference = "lightning"
-resolved_reference = "595b5c992bd930863f70db650f31064df93b2da3"
+resolved_reference = "263d0c84134b50d597a629b03638057eb22dc46f"
 
 [[package]]
 name = "biopython"
