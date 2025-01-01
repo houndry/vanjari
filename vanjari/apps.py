@@ -697,6 +697,9 @@ class VanjariNT(VanjariBase, Bloodhound):
 
         return results_df
 
+    def checkpoint(self, checkpoint:Path=None) -> str:
+        return checkpoint or "https://figshare.unimelb.edu.au/ndownloader/files/51435005"
+
 
 class Vanjari(VanjariNT):
     @ta.method    
@@ -782,3 +785,5 @@ class Vanjari(VanjariNT):
         dataset = VanjariStackPredictionDataset(array=memmap_array, stacks=stacks)
         return dataset, sequence_ids
 
+    def checkpoint(self, checkpoint:Path=None) -> str:
+        return checkpoint or "https://figshare.unimelb.edu.au/ndownloader/files/51434990"
