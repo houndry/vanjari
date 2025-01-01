@@ -154,17 +154,22 @@ class VanjariBase(ta.TorchApp):
 
         category_names = [self.node_to_str(node) for node in classification_tree.node_list_softmax if not node.is_root]
 
-        # Concatenate all dataframes, aligning by index
-        aligned = pd.concat([df[category_names] for df in dfs])
+        for df in dfs:
+            df.set_index('SequenceID', inplace=True)
 
-        # Group by the index and compute the mean (ignoring NaN values)
-        averaged_columns = aligned.groupby(aligned.index).mean()
+        # Concatenate and align all category columns
+        aligned = pd.concat([df[category_names] for df in dfs], axis=0)
 
-        # Combine all unique rows from all dataframes for non-averaged columns
-        other_columns = pd.concat([df.drop(category_names, axis=1, errors='ignore') for df in dfs]).groupby(level=0).first()
+        # Compute the mean for category columns
+        averaged_columns = aligned.groupby('SequenceID').mean()
 
-        # Merge averaged columns with other columns
-        output_df = pd.concat([other_columns, averaged_columns], axis=1).reset_index().drop(columns=['level_0'])
+        # Concatenate non-category columns, ensuring no duplicates
+        other_columns = pd.concat(
+            [df.drop(columns=category_names, errors='ignore') for df in dfs], axis=0
+        ).groupby('SequenceID').first()
+
+        # Merge averaged category columns with other columns
+        output_df = pd.concat([other_columns, averaged_columns], axis=1).reset_index()
 
         if output_feather:
             output_feather.parent.mkdir(parents=True, exist_ok=True)
@@ -193,8 +198,6 @@ class VanjariBase(ta.TorchApp):
             scores = df[score_column].astype(float)
             df[column] = np.where(scores >= threshold, df[column], "NA")
             df[score_column] = np.where(scores >= threshold, df[score_column], "NA")
-
-        breakpoint()
 
         output.parent.mkdir(parents=True, exist_ok=True)
         df.to_csv(output, index=False)
@@ -443,7 +446,7 @@ class VanjariFast(VanjariBase, Corgi):
         # results_df["file"] = results_df["file"].astype(str)
 
         # sort to get original order
-        results_df = results_df.sort_values(by="chunk_index").drop(columns=["chunk_index"]).reset_index()
+        results_df = results_df.sort_values(by="chunk_index").drop(columns=["chunk_index"]).drop(columns=["file"]).reset_index()
 
         # sort according to sequence id
         results_df = results_df.sort_values(by="SequenceID").reset_index(drop=True)
