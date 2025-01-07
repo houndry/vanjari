@@ -33,8 +33,7 @@ class NucleotideTransformerEmbedding(DNAEmbedding):
                 with tarfile.open(tarball_path) as tar:
                     tar.extractall(cache_dir/"nucleotide-transformer-v2-500m-virus")
 
-                import shutil
-                shutil.rmtree(tarball_path)
+                tarball_path.unlink()
 
             self.model_name = str(local_path)
 
