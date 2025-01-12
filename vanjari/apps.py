@@ -602,7 +602,7 @@ class VanjariNT(VanjariBase, Bloodhound):
     def prediction_dataloader(
         self,
         module,
-        input:list[Path]=ta.Param(help="Fasta file(s) or a directory of Fasta files."),
+        input:list[Path]=ta.Param(..., help="Fasta file(s) or a directory of Fasta files."),
         memmap_array_path:Path=None, # TODO explain
         memmap_index:Path=None, # TODO explain
         model_name:str=ta.Param("", help="The name of the embedding model. By default, it uses the Vanjari pretrained language model based on nucleotide-transformer-v2-500m"),
