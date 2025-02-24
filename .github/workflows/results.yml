@@ -27,7 +27,7 @@ jobs:
         ERRORS=errors.txt
         for CSV in results/*.csv; do
             echo "Validating $CSV"
-            poetry run vanjari validate-csv --csv "$CSV" --errors "$ERRORS"
+            echo poetry run vanjari-tools validate-csv --csv "$CSV" --errors "$ERRORS"
             if [ -f "$ERRORS" ]; then
                 echo "Error: $CSV has errors"
                 cat "$ERRORS"
