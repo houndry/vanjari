@@ -24,6 +24,7 @@ from .data import VanjariStackDataModule, VanjariNTPredictionDataset, build_memm
 from .models import VanjariAttentionModel, ConvAttentionClassifier
 from .metrics import ICTVTorchMetric, RANKS
 from .output import build_ictv_dataframe
+from .validate import validate_taxonomic_names
 
 
 PREDICTION_THRESHOLD_DEFAULT = 0.0
@@ -769,3 +770,7 @@ class Vanjari(VanjariNT):
 
     def checkpoint(self, checkpoint:Path=None) -> str:
         return checkpoint or "https://figshare.unimelb.edu.au/ndownloader/files/51434990"
+
+    @ta.tool
+    def validate_csv(self, csv:Path=None, errors:Path=None, **kwargs):
+        return validate_taxonomic_names(csv, errors)

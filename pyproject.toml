@@ -16,7 +16,7 @@ bloodhound = {git = "https://github.com/bloodhound-devs/bloodhound.git", branch=
 pyfastx = "^1.1.0"
 openpyxl = "^3.1.5"
 
-[tool.poetry.dev-dependencies]
+[tool.poetry.group.dev.dependencies]
 pytest = ">=6.2.5"
 ipykernel = ">=6.6.1"
 coverage = ">=7.0"
