@@ -184,9 +184,14 @@ def build_memmap_array(
             (file.suffix == ".gz" and any(file.stem.endswith(ext) for ext in base_extensions))
         )
 
+    # If input is a string or Path, convert it to a list
+    if isinstance(input, (str,Path)):
+        input = [Path(input)]
+
     # Expand the list
     files = []
     for path in input:
+        path = Path(path)
         if path.is_dir():
             # If it's a directory, find all files with the specified extensions
             files.extend([file for file in path.rglob("*") if matches_extensions(file)])

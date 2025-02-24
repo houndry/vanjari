@@ -457,9 +457,7 @@ class VanjariFast(VanjariBase, Corgi):
             print(f"Writing probabilities to {output_feather}")
             results_df.to_feather(output_feather)
 
-        build_ictv_dataframe(results_df, self.classification_tree, prediction_threshold, image_threshold=image_threshold, output_csv=output_csv, image_dir=image_dir)
-
-        return results_df
+        return build_ictv_dataframe(results_df, self.classification_tree, prediction_threshold, image_threshold=image_threshold, output_csv=output_csv, image_dir=image_dir)
 
     def checkpoint(self, checkpoint:Path=None) -> str:
         return checkpoint or "https://figshare.unimelb.edu.au/ndownloader/files/51439508"
@@ -671,14 +669,14 @@ class VanjariNT(VanjariBase, Bloodhound):
             print(f"Writing probabilities to {output_feather}")
             results_df.to_feather(output_feather)
         
-        build_ictv_dataframe(results_df, self.classification_tree, prediction_threshold, image_threshold=image_threshold, output_csv=output_csv, image_dir=image_dir)
+        output_df = build_ictv_dataframe(results_df, self.classification_tree, prediction_threshold, image_threshold=image_threshold, output_csv=output_csv, image_dir=image_dir)
 
         # Delete temp dir if it was created
         if self.temp_dir and self.temp_dir.exists():
             import shutil
             shutil.rmtree(self.temp_dir)
 
-        return results_df
+        return output_df
 
     def checkpoint(self, checkpoint:Path=None) -> str:
         return checkpoint or "https://figshare.unimelb.edu.au/ndownloader/files/51435005"

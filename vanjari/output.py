@@ -45,8 +45,11 @@ def build_ictv_dataframe(probabilities_df, classification_tree, prediction_thres
     
     output_df = pd.DataFrame(data, columns=header_names).fillna("NA").replace("", "NA")
 
+    print(output_df)
+
     if output_csv:
         print(f"Writing inference results to: {output_csv}")
+        output_csv = Path(output_csv)
         output_csv.parent.mkdir(parents=True, exist_ok=True)
         output_df.to_csv(output_csv, index=False)
 
