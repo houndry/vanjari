@@ -6,20 +6,23 @@ Vanjari
 
 .. start-badges
 
-|black badge| |torchapp badge|
+|colab badge| |docs badge| |black badge| |torchapp badge| |colab badge|
 
 .. .. |testing badge| image:: https://github.com/bloodhound-devs/vanjari/actions/workflows/testing.yml/badge.svg
 ..     :target: https://github.com/bloodhound-devs/vanjari/actions
 
-.. .. |docs badge| image:: https://github.com/bloodhound-devs/vanjari/actions/workflows/docs.yml/badge.svg
-..     :target: https://bloodhound-devs.github.io/bloodhound
+.. |docs badge| image:: https://github.com/bloodhound-devs/vanjari/actions/workflows/docs.yml/badge.svg
+    :target: https://bloodhound-devs.github.io/bloodhound
     
 .. |black badge| image:: https://img.shields.io/badge/code%20style-black-000000.svg
     :target: https://github.com/psf/black
     
 .. |torchapp badge| image:: https://img.shields.io/badge/MLOpps-torchapp-B1230A.svg
     :target: https://rbturnbull.github.io/torchapp/
-    
+
+.. |colab badge| image:: https://colab.research.google.com/assets/colab-badge.svg
+   :target: https://colab.research.google.com/github/bloodhound-devs/vanjari/blob/main/vanjari_demo.ipynb
+
 .. end-badges
 
 .. start-quickstart
@@ -139,9 +142,9 @@ To create in image of the classification hierarchy, you can use the ``--image-di
 
 .. code-block:: bash
 
-    vanjari --input MS2.fasta --output-csv MS2-predictions.csv --image-dir MS2-images
+    vanjari --input MS2.fasta --output-csv vanjari-MS2.csv --image-dir vanjari-MS2-images
 
-That will produce the following image in the ``MS2-images`` directory:
+That will produce the following image in the ``vanjari-MS2-images`` directory:
 
 .. image:: https://github.com/bloodhound-devs/vanjari/blob/main/docs/images/NC_001417.2.png?raw=true
 
@@ -151,6 +154,12 @@ In other cases where the confidence is lower, other possibilities will be shown 
 If you have Graphviz installed, the images will be rendered as PNG files, otherwise they will be saved as DOT files. 
 If you wish to render the images files as PDFs, SVGs, or other formats, you can use a command line option such as: ``--image-extension pdf``.
 
+You can also run the VanjariFast model:
+
+.. code-block:: bash
+
+    vanjari-fast --input MS2.fasta --output-csv vanjari-fast-MS2.csv --image-dir vanjari-fast-MS2-images
+
 The same results can be produced programmatically:
 
 .. code-block:: python
@@ -158,7 +167,18 @@ The same results can be produced programmatically:
     from vanjari import Vanjari
 
     vanjari = Vanjari()
-    results = vanjari(input="MS2.fasta", output_csv="MS2-predictions.csv", image_dir="MS2-images")
+    vanjari(input=filename, output_csv="vanjari-MS2.csv", image_dir="vanjari-MS2-images")
+
+Or you can use the VanjariFast model programmatically:
+
+.. code-block:: python
+
+    from vanjari.apps import VanjariFast
+
+    vanjari_fast = VanjariFast()
+    vanjari_fast(input=filename, output_csv="vanjari-fast-MS2.csv", image_dir="vanjari-fast-MS2-images")
+
+Follow this link to launch a demo on `Google Colab <https://colab.research.google.com/github/bloodhound-devs/vanjari/blob/main/vanjari_demo.ipynb>`_.
 
 .. end-demo
 

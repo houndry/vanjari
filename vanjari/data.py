@@ -204,8 +204,6 @@ def build_memmap_array(
     embedding_model = NucleotideTransformerEmbedding()
     embedding_model.setup(model_name=model_name)
 
-    # TODO GET length from module.hparams
-
     dtype = 'float16'
 
     # Get count of sequences
@@ -263,7 +261,6 @@ def build_memmap_array(
     accessions = memmap_index.read_text().strip().split("\n")
 
     return memmap_array, accessions
-
 
 
 def build_species_list(accessions:list[str]) -> list[Species]:

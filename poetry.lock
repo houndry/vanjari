@@ -433,7 +433,7 @@ chardet = ">=3.0.2"
 
 [[package]]
 name = "bio-corgi"
-version = "0.4.3"
+version = "0.4.4"
 description = "Classifier for ORganelle Genomes Inter alia"
 optional = false
 python-versions = ">=3.10,<3.13"
@@ -466,7 +466,7 @@ torchapp = {git = "https://github.com/rbturnbull/torchapp.git", branch = "lightn
 type = "git"
 url = "https://github.com/rbturnbull/corgi.git"
 reference = "lightning"
-resolved_reference = "cc11bed8d1588c402c07d590bedfb37aa6b94c00"
+resolved_reference = "d0f8fa1a502e7cb97638b7b4356ad71d6813fe6c"
 
 [[package]]
 name = "biopython"
