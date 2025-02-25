@@ -1,1 +1,1 @@
-from .apps import Vanjari
+from .apps import Vanjari, VanjariFast
