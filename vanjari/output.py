@@ -3,9 +3,17 @@ import pandas as pd
 import torch
 from hierarchicalsoftmax.inference import greedy_predictions, render_probabilities
 from rich.progress import track
+import shutil
 
-
-def build_ictv_dataframe(probabilities_df, classification_tree, prediction_threshold:float=0.0, image_threshold:float = 0.005, output_csv:Path=None, image_dir:Path=None):
+def build_ictv_dataframe(
+    probabilities_df, 
+    classification_tree, 
+    prediction_threshold:float=0.0, 
+    image_threshold:float = 0.005, 
+    output_csv:Path=None, 
+    image_dir:Path=None,
+    image_extension:str="png",
+):
     header_string = "SequenceID,Realm (-viria),Realm_score,Subrealm (-vira),Subrealm_score,Kingdom (-virae),Kingdom_score,Subkingdom (-virites),Subkingdom_score,Phylum (-viricota),Phylum_score,Subphylum (-viricotina),Subphylum_score,Class (-viricetes),Class_score,Subclass (-viricetidae),Subclass_score,Order (-virales),Order_score,Suborder (-virineae),Suborder_score,Family (-viridae),Family_score,Subfamily (-virinae),Subfamily_score,Genus (-virus),Genus_score,Subgenus (-virus),Subgenus_score,Species (binomial),Species_score"
     header_names = header_string.split(",")
 
@@ -56,7 +64,11 @@ def build_ictv_dataframe(probabilities_df, classification_tree, prediction_thres
     if image_dir:
         print(f"Writing inference probability renders to: {image_dir}")
         image_dir = Path(image_dir)
-        image_paths = [image_dir/f"{name}.png" for name in probabilities_df["SequenceID"]]
+        if shutil.which("dot") is None:
+            print("Error: Graphviz is not installed. Images will be saved as dot files instead.")
+            image_extension = "dot"
+
+        image_paths = [image_dir/f"{name}.{image_extension}" for name in probabilities_df["SequenceID"]]
         render_probabilities(
             root=classification_tree, 
             filepaths=image_paths,

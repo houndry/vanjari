@@ -29,6 +29,9 @@ from .validate import validate_taxonomic_names
 
 PREDICTION_THRESHOLD_DEFAULT = 0.0
 
+IMAGE_DIR_DEFAULT = ta.Param(None, help="A path to output the results as images.")
+IMAGE_THRESHOLD_DEFAULT = ta.Param(0.005, help="The threshold value for making hierarchical predictions.")
+IMAGE_EXTENSION_DEFAULT = ta.Param("png", help="The image extension to use for the images of the hierarchical classifications")
 
 class VanjariBase(ta.TorchApp):
     @ta.tool
@@ -141,6 +144,9 @@ class VanjariBase(ta.TorchApp):
         input:list[Path]=ta.Param(..., help="Feather files to ensemble"),
         output_feather:Path=ta.Param(..., help="Path to save the output Feather"),
         output_csv:Path=ta.Param(..., help="Path to save the output CSV"),
+        image_dir: Path = IMAGE_DIR_DEFAULT,
+        image_threshold:float = IMAGE_THRESHOLD_DEFAULT,
+        image_extension:str=IMAGE_EXTENSION_DEFAULT,
         stem_only:bool=True,
     ):
         classification_tree_path = Path(__file__).parent / "data/tree.pkl"
@@ -178,7 +184,14 @@ class VanjariBase(ta.TorchApp):
             output_df.to_feather(output_feather)
         
         if output_csv:
-            build_ictv_dataframe(output_df, classification_tree, output_csv=output_csv)
+            build_ictv_dataframe(
+                output_df, 
+                classification_tree, 
+                output_csv=output_csv, 
+                image_dir=image_dir, 
+                image_threshold=image_threshold, 
+                image_extension=image_extension,
+            )
 
     @ta.tool
     def increase_threshold(
@@ -424,8 +437,9 @@ class VanjariFast(VanjariBase, Corgi):
         results,
         output_csv: Path = ta.Param(default=None, help="A path to output the results as a CSV."),
         output_feather: Path = ta.Param(default=None, help="A path to output the probabilities as a Feather dataframe."),
-        image_dir: Path = ta.Param(default=None, help="A directory to output the results as images."),
-        image_threshold:float = 0.005,
+        image_dir: Path = IMAGE_DIR_DEFAULT,
+        image_threshold:float = IMAGE_THRESHOLD_DEFAULT,
+        image_extension:str=IMAGE_EXTENSION_DEFAULT,
         prediction_threshold:float = ta.Param(default=PREDICTION_THRESHOLD_DEFAULT, help="The threshold value for making hierarchical predictions."),
         **kwargs,
     ):
@@ -457,7 +471,7 @@ class VanjariFast(VanjariBase, Corgi):
             print(f"Writing probabilities to {output_feather}")
             results_df.to_feather(output_feather)
 
-        return build_ictv_dataframe(results_df, self.classification_tree, prediction_threshold, image_threshold=image_threshold, output_csv=output_csv, image_dir=image_dir)
+        return build_ictv_dataframe(results_df, self.classification_tree, prediction_threshold, image_threshold=image_threshold, output_csv=output_csv, image_dir=image_dir, image_extension=image_extension)
 
     def checkpoint(self, checkpoint:Path=None) -> str:
         return checkpoint or "https://figshare.unimelb.edu.au/ndownloader/files/51439508"
@@ -640,8 +654,9 @@ class VanjariNT(VanjariBase, Bloodhound):
         results, 
         output_csv: Path = ta.Param(default=None, help="A path to output the results as a CSV."),
         output_feather: Path = ta.Param(default=None, help="A path to output the probabilities as a Feather dataframe."),
-        image_dir: Path = ta.Param(default=None, help="A path to output the results as images."),
-        image_threshold:float = 0.005,
+        image_dir: Path = IMAGE_DIR_DEFAULT,
+        image_threshold:float = IMAGE_THRESHOLD_DEFAULT,
+        image_extension:str=IMAGE_EXTENSION_DEFAULT,
         prediction_threshold:float = ta.Param(default=PREDICTION_THRESHOLD_DEFAULT, help="The threshold value for making hierarchical predictions."),
         **kwargs,
     ):        
@@ -669,7 +684,7 @@ class VanjariNT(VanjariBase, Bloodhound):
             print(f"Writing probabilities to {output_feather}")
             results_df.to_feather(output_feather)
         
-        output_df = build_ictv_dataframe(results_df, self.classification_tree, prediction_threshold, image_threshold=image_threshold, output_csv=output_csv, image_dir=image_dir)
+        output_df = build_ictv_dataframe(results_df, self.classification_tree, prediction_threshold, image_threshold=image_threshold, output_csv=output_csv, image_dir=image_dir, image_extension=image_extension)
 
         # Delete temp dir if it was created
         if self.temp_dir and self.temp_dir.exists():

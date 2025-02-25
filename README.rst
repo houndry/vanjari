@@ -97,8 +97,70 @@ More documentation is coming with advanced usage. For now, please see the help:
     vanjari-fast --help
     vanjari-fast-tools --help
 
+Programmatic Usage
+------------------
+
+Vanjari can also be used programmatically. For example:
+
+.. code-block:: python
+
+    from vanjari import Vanjari
+
+    vanjari = Vanjari()
+    results = vanjari.predict("virus.fa")
+
 .. end-quickstart
 
+Bacteriophage MS2 Demo
+----------------------
+
+.. start-demo
+
+You can try out Vanjari on the Bacteriophage MS2 (Emesvirus zinderi) genome.
+
+.. code-block:: bash
+
+    wget "https://raw.githubusercontent.com/bloodhound-devs/vanjari/main/data/MS2.fasta" -O MS2.fasta
+
+Then run the following command:
+
+.. code-block:: bash
+
+    vanjari --input MS2.fasta --output-csv MS2-predictions.csv --image-dir MS2-images
+
+This will classify the MS2 genome and save the predictions to a CSV file like this. 
+
+.. csv-table:: 
+
+    SequenceID,Realm (-viria),Realm_score,Subrealm (-vira),Subrealm_score,Kingdom (-virae),Kingdom_score,Subkingdom (-virites),Subkingdom_score,Phylum (-viricota),Phylum_score,Subphylum (-viricotina),Subphylum_score,Class (-viricetes),Class_score,Subclass (-viricetidae),Subclass_score,Order (-virales),Order_score,Suborder (-virineae),Suborder_score,Family (-viridae),Family_score,Subfamily (-virinae),Subfamily_score,Genus (-virus),Genus_score,Subgenus (-virus),Subgenus_score,Species (binomial),Species_score
+    NC_001417.2,Riboviria,1.0,NA,NA,Orthornavirae,1.0,NA,NA,Lenarviricota,1.0,NA,NA,Leviviricetes,1.0,NA,NA,Norzivirales,1.0,NA,NA,Fiersviridae,0.9998447,NA,NA,Emesvirus,0.99968076,NA,NA,Emesvirus zinderi,0.9996768
+
+To create in image of the classification hierarchy, you can use the ``--image-dir`` option:
+
+.. code-block:: bash
+
+    vanjari --input MS2.fasta --output-csv MS2-predictions.csv --image-dir MS2-images
+
+That will produce the following image in the ``MS2-images`` directory:
+
+.. image:: https://github.com/bloodhound-devs/vanjari/blob/main/docs/images/NC_001417.2.png?raw=true
+
+In this example, the model predicts the correct species with a confidence of more than 99%. 
+In other cases where the confidence is lower, other possibilities will be shown in the image.
+
+If you have Graphviz installed, the images will be rendered as PNG files, otherwise they will be saved as DOT files. 
+If you wish to render the images files as PDFs, SVGs, or other formats, you can use a command line option such as: ``--image-extension pdf``.
+
+The same results can be produced programmatically:
+
+.. code-block:: python
+
+    from vanjari import Vanjari
+
+    vanjari = Vanjari()
+    results = vanjari(input="MS2.fasta", output_csv="MS2-predictions.csv", image_dir="MS2-images")
+
+.. end-demo
 
 ICTV Challenge
 --------------

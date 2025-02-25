@@ -6,6 +6,8 @@
 Welcome to Vanjari's documentation!
 ===========================================================
 
+.. image:: https://github.com/bloodhound-devs/vanjari/blob/main/docs/images/vanjari-banner.jpg?raw=true
+
 .. include:: ../README.rst
    :start-after: start-badges
    :end-before: end-badges
@@ -19,6 +21,7 @@ Vanjari is a tool for the classification of viruses using neural networks. It us
    :caption: Contents:
 
    quickstart
+   demo
    ictv
    api
    credits
