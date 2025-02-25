@@ -6,7 +6,7 @@ Vanjari
 
 .. start-badges
 
-|colab badge| |docs badge| |black badge| |torchapp badge| |colab badge|
+|colab badge| |docs badge| |black badge| |torchapp badge|
 
 .. .. |testing badge| image:: https://github.com/bloodhound-devs/vanjari/actions/workflows/testing.yml/badge.svg
 ..     :target: https://github.com/bloodhound-devs/vanjari/actions
