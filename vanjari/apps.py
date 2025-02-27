@@ -447,7 +447,7 @@ class VanjariFast(VanjariBase, Corgi):
         
         classification_probabilities = node_probabilities(results[0], root=self.classification_tree)
         category_names = [self.node_to_str(node) for node in self.classification_tree.node_list_softmax if not node.is_root]
-        chunk_details = pd.DataFrame(self.dataloader.chunk_details, columns=["file", "SequenceID", "chunk"])
+        chunk_details = pd.DataFrame(self.dataloader.chunk_details, columns=["file", "SequenceID", "Description", "chunk"])
         predictions_df = pd.DataFrame(classification_probabilities.numpy(), columns=category_names)
 
         results_df = pd.concat(
@@ -457,7 +457,7 @@ class VanjariFast(VanjariBase, Corgi):
 
         # Average over chunks
         results_df["chunk_index"] = results_df.index
-        results_df = results_df.groupby(["file", "SequenceID"]).mean().reset_index()
+        results_df = results_df.groupby(["file", "SequenceID", "Description"]).mean().reset_index()
         # results_df["file"] = results_df["file"].astype(str)
 
         # sort to get original order
