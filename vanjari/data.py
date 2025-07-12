@@ -6,20 +6,25 @@ import torch
 import numpy as np
 from pathlib import Path
 import lightning as L
-from corgi.seqtree import SeqTree
+from hierarchicalsoftmax.treedict import TreeDict
 from torch.utils.data import DataLoader
 from rich.console import Console
 from torch.utils.data import Dataset
 from dataclasses import dataclass
 from rich.progress import Progress
-from bloodhound.data import read_memmap
-from bloodhound.embedding import generate_overlapping_intervals
+from barbet.data import read_memmap
+from barbet.embedding import generate_overlapping_intervals
 
 import pyfastx
 
 console = Console()
 
 from .nucleotidetransformer import NucleotideTransformerEmbedding 
+
+COMPLEMENT_TABLE = str.maketrans("ACGTacgt", "TGCAtgca")
+
+def reverse_complement(seq: str) -> str:
+    return seq.translate(COMPLEMENT_TABLE)[::-1]
 
 
 def get_vmr(local_path) -> Path:
@@ -43,7 +48,7 @@ class Stack():
 @dataclass(kw_only=True)
 class VanjariStackTrainingDataset(Dataset):
     species: list[Species]
-    seqtree: SeqTree
+    treedict: TreeDict
     array:np.memmap|np.ndarray
     stack_size:int = 16
     deterministic:bool = False
@@ -62,7 +67,7 @@ class VanjariStackTrainingDataset(Dataset):
             embedding = torch.tensor(data, dtype=torch.float16)
             del data
 
-        seq_detail = self.seqtree[species.accession+":0"]
+        seq_detail = self.treedict[species.accession+":0"]
         node_id = int(seq_detail.node_id)
         del seq_detail
         
@@ -89,7 +94,7 @@ class VanjariStackPredictionDataset(Dataset):
 
 @dataclass
 class VanjariStackDataModule(L.LightningDataModule):
-    seqtree: SeqTree
+    treedict: TreeDict
     array:np.memmap|np.ndarray
     accession_to_array_index:dict[str,int]
     batch_size: int = 1
@@ -121,7 +126,7 @@ class VanjariStackDataModule(L.LightningDataModule):
                 current_accession = species_accession
                 start_index = index
 
-                detail = self.seqtree[accession]
+                detail = self.treedict[accession]
                 current_list = self.validation if detail.partition == self.validation_partition else self.training
         
         current_list.append(Species(accession=current_accession, index=start_index, count=index-start_index))
@@ -139,7 +144,7 @@ class VanjariStackDataModule(L.LightningDataModule):
     def create_dataset(self, species:list[Species], deterministic:bool) -> VanjariStackTrainingDataset:
         return VanjariStackTrainingDataset(
             species=species,
-            seqtree=self.seqtree, 
+            treedict=self.treedict, 
             array=self.array,
             stack_size=self.stack_size,
             deterministic=deterministic,
@@ -213,7 +218,7 @@ def build_memmap_array(
         for _, seq in pyfastx.Fasta(str(file), build_index=False):
             seq = seq.replace("N","")
             for ii, chunk in enumerate(range(0, len(seq), length)):
-                # Add the sequence to the SeqTree
+                # Add the sequence to the TreeDict
                 index += 1
     count = index
 

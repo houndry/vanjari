@@ -14,13 +14,13 @@ from polytorch import total_size
 from seqbank import SeqBank
 from hierarchicalsoftmax.inference import node_probabilities
 from hierarchicalsoftmax import SoftmaxNode
-from corgi.apps import Corgi, calc_cnn_dims_start
-from corgi.seqtree import SeqTree
-from bloodhound.apps import Bloodhound
-from bloodhound.data import read_memmap
+from corgi.apps import Corgi
+from hierarchicalsoftmax.treedict import TreeDict
+from barbet.apps import Barbet
+from barbet.data import read_memmap
 
 from .nucleotidetransformer import NucleotideTransformerEmbedding 
-from .data import VanjariStackDataModule, VanjariNTPredictionDataset, build_memmap_array, build_stacks, VanjariStackPredictionDataset
+from .data import VanjariStackDataModule, VanjariNTPredictionDataset, build_memmap_array, build_stacks, VanjariStackPredictionDataset, reverse_complement
 from .models import VanjariAttentionModel, ConvAttentionClassifier
 from .metrics import ICTVTorchMetric, RANKS
 from .output import build_ictv_dataframe
@@ -37,18 +37,18 @@ class VanjariBase(ta.TorchApp):
     @ta.tool
     def set_validation_partition(
         self, 
-        seqtree:Path=ta.Param(..., help="Path to the SeqTree"),
+        treedict:Path=ta.Param(..., help="Path to the TreeDict"),
         validation_csv:Path=ta.Param(..., help="Path to the validation CSV file"),
-        output:Path=ta.Param(..., help="Path to save the SeqTree"),
+        output:Path=ta.Param(..., help="Path to save the TreeDict"),
     ):
-        seqtree = SeqTree.load(Path(seqtree))
+        treedict = TreeDict.load(Path(treedict))
         validation_df = pd.read_csv(validation_csv)
         validation_accessions = set(validation_df['SequenceID'])
-        for accession, detail in seqtree.items():
+        for accession, detail in treedict.items():
             detail.partition = 0 if accession.split(":")[0] in validation_accessions else 1
         
         output.parent.mkdir(parents=True, exist_ok=True)
-        seqtree.save(output)
+        treedict.save(output)
 
     @ta.tool
     def taxonomy_csv(
@@ -338,11 +338,11 @@ class VanjariBase(ta.TorchApp):
     @ta.tool
     def max_depth(
         self, 
-        seqtree:Path=ta.Param(..., help="Path to the SeqTree"), 
+        treedict:Path=ta.Param(..., help="Path to the TreeDict"), 
     ):
-        seqtree = SeqTree.load(Path(seqtree))
+        treedict = TreeDict.load(Path(treedict))
         max_depth = 0
-        for leaf in track(seqtree.classification_tree.leaves):
+        for leaf in track(treedict.classification_tree.leaves):
             max_depth = max(max_depth, len(leaf.ancestors))
         print(f"Max depth: {max_depth}")
 
@@ -367,12 +367,12 @@ class VanjariFast(VanjariBase, Corgi):
     @ta.tool
     def preprocess(
         self, 
-        seqtree:Path=ta.Param(..., help="Path to save the SeqTree"), 
+        treedict:Path=ta.Param(..., help="Path to save the TreeDict"), 
         seqbank:Path=ta.Param(..., help="Path to save the SeqBank"),
         max_accessions:int=ta.Param(0, help="Maximum number of accessions to add"),
         fasta_dir:Path=ta.Param(..., help="Path to the FASTA directory"),
     ):
-        seqtree_path = Path(seqtree)
+        treedict_path = Path(treedict)
         seqbank_path = Path(seqbank)
         fasta_dir = Path(fasta_dir)
 
@@ -382,7 +382,7 @@ class VanjariFast(VanjariBase, Corgi):
 
         df = self.taxonomy_df(max_accessions)
         root = SoftmaxNode(name="Virus", rank="Root")
-        seqtree = SeqTree(root)
+        treedict = TreeDict(root)
         
         print("Building classification tree")
         for _, row in track(df.iterrows(), total=len(df)):
@@ -419,17 +419,17 @@ class VanjariFast(VanjariBase, Corgi):
                     print(f"Error adding {accession}: {e}")
                     continue
 
-                # Add the sequence to the SeqTree
+                # Add the sequence to the TreeDict
                 partition = random.randint(0, 4)       
-                seqtree.add(accession, current_node, partition)
+                treedict.add(accession, current_node, partition)
 
         root.render(filepath="viruses.dot")
         with open("tree.txt", "w") as f:
             f.write(str(root.render()))
 
-        # Save the SeqTree
-        seqtree_path.parent.mkdir(parents=True, exist_ok=True)
-        seqtree.save(seqtree_path)
+        # Save the TreeDict
+        treedict_path.parent.mkdir(parents=True, exist_ok=True)
+        treedict.save(treedict_path)
 
     @ta.method
     def output_results(
@@ -477,18 +477,19 @@ class VanjariFast(VanjariBase, Corgi):
         return checkpoint or "https://figshare.unimelb.edu.au/ndownloader/files/51439508"
 
 
-class VanjariNT(VanjariBase, Bloodhound):
+class VanjariNT(VanjariBase, Barbet):
     @ta.tool
     def preprocess(
         self, 
-        seqtree:Path=ta.Param(..., help="Path to save the SeqTree"), 
+        treedict:Path=ta.Param(..., help="Path to save the TreeDict"), 
         output_dir:Path=ta.Param(default=..., help="A directory to store the output which includes the memmap array, the listing of accessions and an error log."),
         max_accessions:int=ta.Param(0, help="Maximum number of accessions to add"),
         fasta_dir:Path=ta.Param(..., help="Path to the FASTA directory"),
         model_name:str=ta.Param("", help="The name of the embedding model. By default, it uses the Vanjari pretrained language model based on nucleotide-transformer-v2-500m"),
-        length:int=1000,      
+        length:int=1000,  
+        reverse:bool=True,   
     ):
-        seqtree_path = Path(seqtree)
+        treedict_path = Path(treedict)
         fasta_dir = Path(fasta_dir)
 
         model = NucleotideTransformerEmbedding()
@@ -496,7 +497,7 @@ class VanjariNT(VanjariBase, Bloodhound):
 
         df = self.taxonomy_df(max_accessions)
         root = SoftmaxNode(name="Virus", rank="Root")
-        seqtree = SeqTree(root)
+        treedict = TreeDict(root)
         
         print("Building classification tree")
         # 
@@ -522,12 +523,8 @@ class VanjariNT(VanjariBase, Bloodhound):
                 for _, seq in pyfastx.Fasta(str(fasta), build_index=False):
                     seq = seq.replace("N","")
                     for ii, chunk in enumerate(range(0, len(seq), length)):
-                        # Add the sequence to the SeqTree
-                        index += 1
-
-        # root.render(filepath="viruses.dot")
-        # with open("tree.txt", "w") as f:
-        #     f.write(str(root.render()))
+                        # Add the sequence to the TreeDict
+                        index += 1 + int(reverse)
 
         count = index
         print("count", count)
@@ -536,7 +533,23 @@ class VanjariNT(VanjariBase, Bloodhound):
 
         index = 0
         output_dir.mkdir(exist_ok=True, parents=True)
-        memmap_array = None
+        embedding = model.embed("A"*length)
+        memmap_array_path = output_dir/f"{output_dir.name}.npy"
+        shape = (count, len(embedding))
+        memmap_array = np.memmap(memmap_array_path, dtype=dtype, mode='w+', shape=shape)
+
+        def add_embedding(subseq, key, current_node, partition) -> bool:
+            try:
+                embedding = model.embed(subseq)
+                memmap_array[index,:] = embedding.half().numpy()
+                print(key, file=f)
+                treedict.add(key, current_node, partition)
+            except Exception as err:
+                print(f"{key}: {err}\n{subseq}")
+                return False
+            
+            return True
+
         with open(output_dir/f"{output_dir.name}.txt", "w") as f: 
             for _, row in track(df.iterrows(), total=len(df)):
 
@@ -572,30 +585,14 @@ class VanjariNT(VanjariBase, Bloodhound):
                             subseq = seq[chunk:chunk+length]
 
                             key = f"{accession}:{ii}"
+                            partition = random.randint(0, 4)
 
-                            try:
-                                embedding = model.embed(subseq)
-                            except Exception as err:
-                                print(f"{key}: {err}\n{subseq}")
-                                continue
-                            
-                            if memmap_array is None:
-                                memmap_array_path = output_dir/f"{output_dir.name}.npy"
-                                shape = (count, len(embedding))
-                                memmap_array = np.memmap(memmap_array_path, dtype=dtype, mode='w+', shape=shape)
+                            index += add_embedding(subseq, key, current_node, partition)
+                            index += add_embedding(reverse_complement(subseq), key + "r", current_node, partition)                            
 
-                            memmap_array[index,:] = embedding.half().numpy()
-                            
-                            print(key, file=f)
-                            # print(key)
-                            partition = random.randint(0, 4)       
-                            seqtree.add(key, current_node, partition)
-
-                            index += 1
-
-        # Save the SeqTree
-        seqtree_path.parent.mkdir(parents=True, exist_ok=True)
-        seqtree.save(seqtree_path)
+        # Save the TreeDict
+        treedict_path.parent.mkdir(parents=True, exist_ok=True)
+        treedict.save(treedict_path)
 
     @ta.method
     def build_dataset_sequence_ids(self, memmap_array, accessions, **kwargs):
@@ -608,7 +605,7 @@ class VanjariNT(VanjariBase, Bloodhound):
         """ Extra hyperparameters to save with the module. """
         return dict(
             length=length,
-            classification_tree=self.seqtree.classification_tree,
+            classification_tree=self.treedict.classification_tree,
         )
 
     @ta.method("build_dataset_sequence_ids")
@@ -712,7 +709,7 @@ class Vanjari(VanjariNT):
         return VanjariStackDataModule(
             array=self.array,
             accession_to_array_index=self.accession_to_array_index,
-            seqtree=self.seqtree,
+            treedict=self.treedict,
             max_items=max_items,
             num_workers=num_workers,
             stack_size=stack_size,
