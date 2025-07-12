@@ -7,7 +7,7 @@
 #SBATCH --cpus-per-task=8
  
 # set your minimum acceptable walltime=days-hours:minutes:seconds
-#SBATCH -t 8:00:00
+#SBATCH -t 12:00:00
 # SBATCH -t 8-0:00:00
  
 #SBATCH --mem-per-cpu=12G
@@ -36,11 +36,14 @@ export HF_HOME=/home/rturnbull/wytamma/huggingface
 
 GROWTH=2
 LAYERS=2
-EMBEDDING=0
 LR=0.0001
 EPOCHS=20
 BATCH=16
-FEATURES=768
+EMBEDDING=0
+#FEATURES=768
+FEATURES=1024
+#FEATURES=256
+DROPOUT=0.4
 #FEATURES=1024
 #FEATURES=256
 ESM_LAYERS=6
@@ -53,7 +56,7 @@ DROPOUT=0.4
 #MODEL_NAME=checkpoint-66000
 
 LENGTH=1000
-LENGTH=500
+#LENGTH=500
 MODEL_NAME=checkpoint182000l${LENGTH}
 #MODEL_NAME=checkpoint66000l${LENGTH}
 
@@ -61,7 +64,7 @@ MODEL_NAME=checkpoint182000l${LENGTH}
 PREPROCESSED_DIR=/data/gpfs/projects/punim0111/CORGI_TERRIER/rob/${MODEL_NAME}
 SEQTREE=${PREPROCESSED_DIR}/${MODEL_NAME}-validation.st
 if [[ ! -s "$SEQTREE" ]]; then
-        vanjarint-tools set-validation-partition --seqtree ${PREPROCESSED_DIR}/${MODEL_NAME}.st --output $SEQTREE --validation-csv /data/gpfs/projects/punim0111/CORGI_TERRIER/rob/validation_fastas/validation.csv
+        vanjarint-tools set-validation-partition --treedict ${PREPROCESSED_DIR}/${MODEL_NAME}.st --output $SEQTREE --validation-csv /data/gpfs/projects/punim0111/CORGI_TERRIER/rob/validation_fastas/validation.csv
 fi
 MEMMAP=${PREPROCESSED_DIR}/${MODEL_NAME}.npy
 MEMMAP_INDEX=${PREPROCESSED_DIR}/${MODEL_NAME}.txt
@@ -76,7 +79,7 @@ fi
 vanjarint-tools train  \
         --memmap  $MEMMAP \
         --memmap-index  ${MEMMAP_INDEX} \
-        --seqtree  $SEQTREE \
+        --treedict  $SEQTREE \
         --features $FEATURES \
         --intermediate-layers $LAYERS \
         --growth-factor $GROWTH \
@@ -84,9 +87,9 @@ vanjarint-tools train  \
         --family-embedding-size $EMBEDDING \
         --max-epochs $EPOCHS \
         --max-learning-rate $LR \
-        --embedding-model ESM${ESM_LAYERS} \
         --num-workers 2 \
-        --run-name VanjariNT-b${BATCH}f${FEATURES}l${LAYERS}g${GROWTH}e${EMBEDDING}lr${LR}ep${EPOCHS}d${DROPOUT}-${MODEL_NAME}-genus \
+        --train-all \
+        --run-name VanjariNT-b${BATCH}f${FEATURES}l${LAYERS}g${GROWTH}e${EMBEDDING}lr${LR}ep${EPOCHS}d${DROPOUT}-${MODEL_NAME}-all \
         --project-name VanjariNTVal \
         --wandb-entity   "mariadelmarq-The University of Melbourne" \
         --wandb 

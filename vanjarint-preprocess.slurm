@@ -8,7 +8,7 @@
  
 # set your minimum acceptable walltime=days-hours:minutes:seconds
 # SBATCH -t 7-0:00:00
-#SBATCH -t 4-0:00:00
+#SBATCH -t 5-0:00:00
  
 #SBATCH --mem-per-cpu=12G
  
@@ -34,18 +34,17 @@ PATH=/data/gpfs/projects/punim0111/CORGI_TERRIER/poetry/bin:$PATH
 
 source .venv/bin/activate
 
-LENGTH=500
-#LENGTH=1000
+#LENGTH=500
+LENGTH=1000
 
-MODEL_NAME=checkpoint182000l${LENGTH}
+MODEL_NAME=checkpoint182000l${LENGTH}-reverse
 
 SEQTREE=../$MODEL_NAME/${MODEL_NAME}.st
 
-#CHECKPOINT=/data/gpfs/projects/punim0111/CORGI_TERRIER/nt/
 CHECKPOINT=/data/gpfs/projects/punim0111/CORGI_TERRIER/checkpoint-182000/
 
 vanjarint-tools preprocess         \
-    --seqtree $SEQTREE         \
+    --treedict $SEQTREE         \
     --output-dir ../$MODEL_NAME \
     --fasta-dir ../all_fastas/ \
     --length $LENGTH \
