@@ -68,13 +68,13 @@ if [[ ! -s "$MEMMAP" ]]; then
         cp ${PREPROCESSED_DIR}/${MODEL_NAME}.npy $MEMMAP
 fi
 
-SEQTREE=${PREPROCESSED_DIR}/${MODEL_NAME}.st
+TREEDICT=${PREPROCESSED_DIR}/${MODEL_NAME}.td
 
 
 vanjari-tools train  \
         --memmap  $MEMMAP \
         --memmap-index  ${MEMMAP_INDEX} \
-        --treedict  $SEQTREE \
+        --treedict  $TREEDICT \
         --features $FEATURES \
         --intermediate-layers $LAYERS \
         --growth-factor $GROWTH \

@@ -538,11 +538,11 @@ class VanjariNT(VanjariBase, Barbet):
         shape = (count, len(embedding))
         memmap_array = np.memmap(memmap_array_path, dtype=dtype, mode='w+', shape=shape)
 
-        def add_embedding(subseq, key, current_node, partition) -> bool:
+        def add_embedding(subseq, key, current_node, partition, file) -> bool:
             try:
                 embedding = model.embed(subseq)
                 memmap_array[index,:] = embedding.half().numpy()
-                print(key, file=f)
+                print(key, file=file)
                 treedict.add(key, current_node, partition)
             except Exception as err:
                 print(f"{key}: {err}\n{subseq}")
@@ -550,6 +550,7 @@ class VanjariNT(VanjariBase, Barbet):
             
             return True
 
+        partitions = dict()
         with open(output_dir/f"{output_dir.name}.txt", "w") as f: 
             for _, row in track(df.iterrows(), total=len(df)):
 
@@ -571,6 +572,10 @@ class VanjariNT(VanjariBase, Barbet):
 
                     current_node = child if found else SoftmaxNode(name=value, parent=current_node, rank=rank) 
 
+                if current_node not in partitions:
+                    partitions[current_node] = random.randint(0, 4)
+                partition = partitions[current_node]
+                
                 accessions = genbank_accession.split(";")
                 for accession in accessions:
                     print(accession)
@@ -585,10 +590,9 @@ class VanjariNT(VanjariBase, Barbet):
                             subseq = seq[chunk:chunk+length]
 
                             key = f"{accession}:{ii}"
-                            partition = random.randint(0, 4)
 
-                            index += add_embedding(subseq, key, current_node, partition)
-                            index += add_embedding(reverse_complement(subseq), key + "r", current_node, partition)                            
+                            index += add_embedding(subseq, key, current_node, partition, file=f)
+                            index += add_embedding(reverse_complement(subseq), key + "r", current_node, partition, file=f)                            
 
         # Save the TreeDict
         treedict_path.parent.mkdir(parents=True, exist_ok=True)

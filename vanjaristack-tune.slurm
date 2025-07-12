@@ -65,7 +65,7 @@ MODEL_NAME=checkpoint121000l${LENGTH}
 MODEL_NAME=checkpoint182000l${LENGTH}
 
 PREPROCESSED_DIR=/data/gpfs/projects/punim0111/CORGI_TERRIER/rob/${MODEL_NAME}
-SEQTREE=${PREPROCESSED_DIR}/${MODEL_NAME}-validation.st
+TREEDICT=${PREPROCESSED_DIR}/${MODEL_NAME}-validation.td
 MEMMAP=${PREPROCESSED_DIR}/${MODEL_NAME}.npy
 MEMMAP_INDEX=${PREPROCESSED_DIR}/${MODEL_NAME}.txt
 
@@ -81,7 +81,7 @@ vanjaristack-tools tune  \
         --id $RUN_NAME \
         --memmap  $MEMMAP \
         --memmap-index  ${MEMMAP_INDEX} \
-        --treedict  $SEQTREE \
+        --treedict  $TREEDICT \
         --max-epochs $EPOCHS \
         --embedding-model ESM${ESM_LAYERS} \
         --stack-size $STACK \

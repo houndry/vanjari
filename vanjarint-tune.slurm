@@ -60,9 +60,9 @@ MODEL_NAME=checkpoint182000l${LENGTH}
 
 
 PREPROCESSED_DIR=/data/gpfs/projects/punim0111/CORGI_TERRIER/rob/${MODEL_NAME}
-SEQTREE=${PREPROCESSED_DIR}/${MODEL_NAME}-validation.st
-if [[ ! -s "$SEQTREE" ]]; then
-        vanjarint-tools set-validation-partition --treedict ${PREPROCESSED_DIR}/${MODEL_NAME}.st --output $SEQTREE --validation-csv /data/gpfs/projects/punim0111/CORGI_TERRIER/rob/validation_fastas/validation.csv
+TREEDICT=${PREPROCESSED_DIR}/${MODEL_NAME}-validation.td
+if [[ ! -s "$TREEDICT" ]]; then
+        vanjarint-tools set-validation-partition --treedict ${PREPROCESSED_DIR}/${MODEL_NAME}.td --output $TREEDICT --validation-csv /data/gpfs/projects/punim0111/CORGI_TERRIER/rob/validation_fastas/validation.csv
 fi
 MEMMAP=${PREPROCESSED_DIR}/${MODEL_NAME}.npy
 MEMMAP_INDEX=${PREPROCESSED_DIR}/${MODEL_NAME}.txt
@@ -80,7 +80,7 @@ vanjarint-tools tune  \
         --id $RUN_NAME \
         --memmap  $MEMMAP \
         --memmap-index  ${MEMMAP_INDEX} \
-        --treedict  $SEQTREE \
+        --treedict  $TREEDICT \
         --family-embedding-size $EMBEDDING \
         --max-epochs $EPOCHS \
         --embedding-model ESM${ESM_LAYERS} \

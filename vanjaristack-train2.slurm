@@ -64,7 +64,7 @@ MODEL_NAME=checkpoint121000l${LENGTH}
 MODEL_NAME=checkpoint182000l${LENGTH}
 
 PREPROCESSED_DIR=/data/gpfs/projects/punim0111/CORGI_TERRIER/rob/${MODEL_NAME}
-SEQTREE=${PREPROCESSED_DIR}/${MODEL_NAME}-validation.st
+TREEDICT=${PREPROCESSED_DIR}/${MODEL_NAME}-validation.td
 MEMMAP=${PREPROCESSED_DIR}/${MODEL_NAME}.npy
 MEMMAP_INDEX=${PREPROCESSED_DIR}/${MODEL_NAME}.txt
 
@@ -76,7 +76,7 @@ fi
 vanjaristack-tools train  \
         --memmap  $MEMMAP \
         --memmap-index  ${MEMMAP_INDEX} \
-        --treedict  $SEQTREE \
+        --treedict  $TREEDICT \
         --features $FEATURES \
         --intermediate-layers $LAYERS \
         --growth-factor $GROWTH \

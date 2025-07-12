@@ -226,6 +226,23 @@ def build_memmap_array(
 
     index = 0
     assert memmap_array_path is not None # hack
+
+    embedding = model.embed("A"*length)
+    memmap_array_path = output_dir/f"{output_dir.name}.npy"
+    shape = (count, len(embedding))
+    memmap_array = np.memmap(memmap_array_path, dtype=dtype, mode='w+', shape=shape)
+
+    def add_embedding(subseq, key, file) -> bool:
+        try:
+            embedding = model.embed(subseq)
+            memmap_array[index,:] = embedding.half().numpy()
+            print(key, file=file)
+        except Exception as err:
+            print(f"{key}: {err}\n{subseq}")
+            return False
+        
+        return True
+
     if not memmap_array_path.exists() or not memmap_index.exists():
         memmap_index.parent.mkdir(parents=True, exist_ok=True)
         memmap_array = None
@@ -241,22 +258,9 @@ def build_memmap_array(
 
                             key = f"{accession}:{ii}"
 
-                            try:
-                                embedding = embedding_model.embed(subseq)
-                            except Exception as err:
-                                print(f"{key}: {err}\n{subseq}")
-                                continue
-                            
-                            if memmap_array is None:
-                                shape = (count, len(embedding))
-                                memmap_array_path.parent.mkdir(parents=True, exist_ok=True)
-                                memmap_array = np.memmap(memmap_array_path, dtype=dtype, mode='w+', shape=shape)
+                            index += add_embedding(subseq, key, file=f)
+                            index += add_embedding(reverse_complement(subseq), key + "r", file=f)                            
 
-                            memmap_array[index,:] = embedding.half().numpy()
-                            
-                            print(key, file=f)
-
-                            index += 1
                             progress.update(task, completed=index)
     else:
         accessions = memmap_index.read_text().strip().split("\n")

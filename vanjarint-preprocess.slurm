@@ -39,12 +39,12 @@ LENGTH=1000
 
 MODEL_NAME=checkpoint182000l${LENGTH}-reverse
 
-SEQTREE=../$MODEL_NAME/${MODEL_NAME}.st
+TREEDICT=../$MODEL_NAME/${MODEL_NAME}.td
 
 CHECKPOINT=/data/gpfs/projects/punim0111/CORGI_TERRIER/checkpoint-182000/
 
 vanjarint-tools preprocess         \
-    --treedict $SEQTREE         \
+    --treedict $TREEDICT         \
     --output-dir ../$MODEL_NAME \
     --fasta-dir ../all_fastas/ \
     --length $LENGTH \

@@ -35,7 +35,7 @@ source .venv/bin/activate
 
 SEQBANK=/tmp/ictv.sb
 cp -r /home/rturnbull/wytamma/rob/virus/ictv.sb $SEQBANK
-SEQTREE=/home/rturnbull/wytamma/rob/virus/ictv-validation.st
+TREEDICT=/home/rturnbull/wytamma/rob/virus/ictv-validation.td
 
 LEARNING_RATE=0.001
 MACC=100000000000
@@ -49,7 +49,7 @@ CHECKPOINT=/data/gpfs/projects/punim0111/CORGI_TERRIER/rob/vanjarint/logs/vanjar
 
 
 vanjari-tools validate         \
-    --treedict $SEQTREE         \
+    --treedict $TREEDICT         \
     --seqbank $SEQBANK         \
     --phi 0.9869985869163924 \
     --checkpoint $CHECKPOINT \

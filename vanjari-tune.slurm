@@ -36,7 +36,7 @@ source .venv/bin/activate
 
 SEQBANK=/tmp/ictv.sb
 cp -r /home/rturnbull/wytamma/rob/virus/ictv.sb $SEQBANK
-SEQTREE=/home/rturnbull/wytamma/rob/virus/ictv.st
+TREEDICT=/home/rturnbull/wytamma/rob/virus/ictv.td
 
 MACC=100000000000
 EPOCHS=100
@@ -48,7 +48,7 @@ RUN_NAME=vanjari-tune-m${MACC}e${EPOCHS}max${MAX_LENGTH}val${VAL_LENGTH}b${BATCH
 vanjari-tools tune         \
     --engine optuna \
     --id $RUN_NAME \
-    --treedict $SEQTREE         \
+    --treedict $TREEDICT         \
     --seqbank $SEQBANK         \
     --macc $MACC         \
     --max-epochs $EPOCHS \

@@ -36,7 +36,7 @@ source .venv/bin/activate
 
 SEQBANK=/tmp/ictv.sb
 cp -r /home/rturnbull/wytamma/rob/virus/ictv.sb $SEQBANK
-SEQTREE=/home/rturnbull/wytamma/rob/virus/ictv-validation.st
+TREEDICT=/home/rturnbull/wytamma/rob/virus/ictv-validation.td
 
 LEARNING_RATE=0.001
 MACC=100000000000
@@ -48,7 +48,7 @@ VAL_LENGTH=2000
 RUN_NAME=vanjari-fast-lr${LEARNING_RATE}m${MACC}e${EPOCHS}max${MAX_LENGTH}val${VAL_LENGTH}b${BATCH_SIZE}-all-attn512-h100
 
 vanjari-fast-tools train         \
-    --treedict $SEQTREE         \
+    --treedict $TREEDICT         \
     --seqbank $SEQBANK         \
     --max-learning-rate $LEARNING_RATE         \
     --macc $MACC         \
