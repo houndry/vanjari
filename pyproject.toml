@@ -9,12 +9,13 @@ readme = "README.rst"
 [tool.poetry.dependencies]
 python = ">=3.10,<3.12"
 numpy = "<2.0.0"
-hierarchicalsoftmax = {git = "https://github.com/rbturnbull/hierarchicalsoftmax.git", branch="torchmetrics"}
-h5py = "^3.8.0"
-bio-corgi = {git = "https://github.com/rbturnbull/corgi.git", branch="lightning"}
-bloodhound = {git = "https://github.com/bloodhound-devs/bloodhound.git", branch="prediction"}
-pyfastx = "^1.1.0"
-openpyxl = "^3.1.5"
+hierarchicalsoftmax = ">=1.4.4"
+h5py = ">=3.8.0"
+bio-corgi = ">=0.4.3"
+barbet = {git = "https://github.com/bloodhound-devs/bloodhound.git", branch="barbet"}
+pyfastx = ">=1.1.0"
+openpyxl = ">=3.1.5"
+transformers = "^4.53.2"
 
 [tool.poetry.group.dev.dependencies]
 pytest = ">=6.2.5"
