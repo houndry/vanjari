@@ -89,7 +89,7 @@ class VanjariStackPredictionDataset(Dataset):
             embedding = torch.tensor(data, dtype=torch.float16)
             del data
         
-        return (embedding, )
+        return embedding
 
 
 @dataclass
@@ -119,6 +119,9 @@ class VanjariStackDataModule(L.LightningDataModule):
         current_list = None
 
         for accession, index in self.accession_to_array_index.items():
+            if isinstance(index, list):
+                assert len(index) == 1
+                index = index[0]
             species_accession = accession.split(":")[0]
             if current_accession != species_accession:
                 if current_list is not None:
@@ -177,6 +180,7 @@ def build_memmap_array(
     memmap_array_path:Path=None,
     memmap_index:Path=None,
     model_name:str="",
+    force:bool=False,
     length:int=1000,
 ) -> tuple[np.memmap, list[str]]:
     # Get list of fasta files
@@ -223,29 +227,28 @@ def build_memmap_array(
     count = index
 
     assert memmap_index is not None # hack
-
-    index = 0
     assert memmap_array_path is not None # hack
 
-    embedding = model.embed("A"*length)
-    memmap_array_path = output_dir/f"{output_dir.name}.npy"
-    shape = (count, len(embedding))
-    memmap_array = np.memmap(memmap_array_path, dtype=dtype, mode='w+', shape=shape)
+    if not memmap_array_path.exists() or not memmap_index.exists() or force:
+        index = 0
+        embedding = embedding_model.embed("A"*length)
+        shape = (count, len(embedding))
 
-    def add_embedding(subseq, key, file) -> bool:
-        try:
-            embedding = model.embed(subseq)
-            memmap_array[index,:] = embedding.half().numpy()
-            print(key, file=file)
-        except Exception as err:
-            print(f"{key}: {err}\n{subseq}")
-            return False
-        
-        return True
-
-    if not memmap_array_path.exists() or not memmap_index.exists():
+        memmap_array_path.parent.mkdir(parents=True, exist_ok=True)
+        memmap_array = np.memmap(memmap_array_path, dtype=dtype, mode='w+', shape=shape)
         memmap_index.parent.mkdir(parents=True, exist_ok=True)
-        memmap_array = None
+
+        def add_embedding(subseq, key, file) -> bool:
+            try:
+                embedding = embedding_model.embed(subseq)
+                memmap_array[index,:] = embedding.half().numpy()
+                print(key, file=file)
+            except Exception as err:
+                print(f"{key}: {err}\n{subseq}")
+                return False
+            
+            return True
+
         with Progress() as progress:
             task = progress.add_task("Processing...", total=count)
             with open(memmap_index, "w") as f: 

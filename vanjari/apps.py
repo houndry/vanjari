@@ -622,10 +622,12 @@ class VanjariNT(VanjariBase, Barbet):
         model_name:str=ta.Param("", help="The name of the embedding model. By default, it uses the Vanjari pretrained language model based on nucleotide-transformer-v2-500m"),
         batch_size:int = 1,
         num_workers: int = 0,
+        force:bool = False,
         **kwargs,
     ) -> DataLoader:
         length = module.hparams.length
         self.classification_tree = module.hparams.classification_tree
+
 
         self.temp_dir = None
         if not memmap_array_path:
@@ -643,11 +645,19 @@ class VanjariNT(VanjariBase, Barbet):
             memmap_index=memmap_index,
             model_name=model_name,
             length=length,
+            force=force,
         )
         dataset, self.sequence_ids = self.build_dataset_sequence_ids(memmap_array, accessions, **kwargs)
         dataloader = DataLoader(dataset, batch_size=batch_size, num_workers=num_workers, shuffle=False)
 
+        # module.setup_prediction(self, self.sequence_ids, threshold=0.0, save_probabilities=False, ranks=RANKS)
+
         return dataloader
+
+    @ta.method
+    def module_class(self) :
+        from torchapp.modules import GeneralLightningModule
+        return GeneralLightningModule
 
     @ta.method
     def output_results(
@@ -788,3 +798,36 @@ class Vanjari(VanjariNT):
     @ta.tool
     def validate_csv(self, csv:Path=None, errors:Path=None, **kwargs):
         return validate_taxonomic_names(csv, errors)
+
+    @ta.main(
+        "load_checkpoint",
+        "prediction_trainer",
+        "prediction_dataloader",
+        "output_results",
+    )
+    def predict(
+        self,
+        **kwargs,
+    ):
+        """ Runs predictions with model and outputs the results. """
+        import torch
+
+        module = self.load_checkpoint(**kwargs)
+        trainer = self.prediction_trainer(module, **kwargs)
+        prediction_dataloader = self.prediction_dataloader(module, **kwargs)
+
+        results_list = trainer.predict(module, dataloaders=prediction_dataloader)
+
+        if not results_list:
+            return None
+
+        # If each batch returns a tuple, zip-and-concatenate along dim=0
+        first_item = results_list[0]
+        if isinstance(first_item, tuple):
+            results = tuple(
+                torch.cat(elements, dim=0) for elements in zip(*results_list)
+            )
+        else:
+            results = torch.cat(results_list, dim=0)
+
+        return self.output_results(results, **kwargs)
