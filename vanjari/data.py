@@ -232,7 +232,7 @@ def build_memmap_array(
     if not memmap_array_path.exists() or not memmap_index.exists() or force:
         index = 0
         embedding = embedding_model.embed("A"*length)
-        shape = (count, len(embedding))
+        shape = (count*2, len(embedding))
 
         memmap_array_path.parent.mkdir(parents=True, exist_ok=True)
         memmap_array = np.memmap(memmap_array_path, dtype=dtype, mode='w+', shape=shape)
@@ -311,3 +311,14 @@ def build_stacks(accessions:list[str], stack_size:int=32, overlap:int=8) -> tupl
                 stacks.append(Stack(start=species.index+interval[0], end=species.index+interval[1]))
                 species_names.append(species_name)
     return stacks, species_names
+
+
+def assign_partition(name: str, seed: int = 42, partitions: int = 5) -> int:
+    import hashlib
+
+    # Combine the seed with the name to make the bin assignment configurable
+    combined = f"{seed}-{name}"
+    # Use a stable hash function (e.g., SHA256)
+    hash_bytes = hashlib.sha256(combined.encode('utf-8')).digest()
+    # Convert to int and map to bin
+    return int.from_bytes(hash_bytes, 'big') % partitions

@@ -20,7 +20,15 @@ from barbet.apps import Barbet
 from barbet.data import read_memmap
 
 from .nucleotidetransformer import NucleotideTransformerEmbedding 
-from .data import VanjariStackDataModule, VanjariNTPredictionDataset, build_memmap_array, build_stacks, VanjariStackPredictionDataset, reverse_complement
+from .data import (
+    VanjariStackDataModule, 
+    VanjariNTPredictionDataset, 
+    build_memmap_array, 
+    build_stacks, 
+    VanjariStackPredictionDataset, 
+    reverse_complement,
+    assign_partition,
+)
 from .models import VanjariAttentionModel, ConvAttentionClassifier
 from .metrics import ICTVTorchMetric, RANKS
 from .output import build_ictv_dataframe
@@ -371,6 +379,7 @@ class VanjariFast(VanjariBase, Corgi):
         seqbank:Path=ta.Param(..., help="Path to save the SeqBank"),
         max_accessions:int=ta.Param(0, help="Maximum number of accessions to add"),
         fasta_dir:Path=ta.Param(..., help="Path to the FASTA directory"),
+        seed:int=42,
     ):
         treedict_path = Path(treedict)
         seqbank_path = Path(seqbank)
@@ -420,7 +429,7 @@ class VanjariFast(VanjariBase, Corgi):
                     continue
 
                 # Add the sequence to the TreeDict
-                partition = random.randint(0, 4)       
+                partition = assign_partition(current_node, seed=seed, partitions=5)
                 treedict.add(accession, current_node, partition)
 
         root.render(filepath="viruses.dot")
@@ -487,7 +496,8 @@ class VanjariNT(VanjariBase, Barbet):
         fasta_dir:Path=ta.Param(..., help="Path to the FASTA directory"),
         model_name:str=ta.Param("", help="The name of the embedding model. By default, it uses the Vanjari pretrained language model based on nucleotide-transformer-v2-500m"),
         length:int=1000,  
-        reverse:bool=True,   
+        reverse:bool=True,
+        seed:int=42,   
     ):
         treedict_path = Path(treedict)
         fasta_dir = Path(fasta_dir)
@@ -573,7 +583,7 @@ class VanjariNT(VanjariBase, Barbet):
                     current_node = child if found else SoftmaxNode(name=value, parent=current_node, rank=rank) 
 
                 if current_node not in partitions:
-                    partitions[current_node] = random.randint(0, 4)
+                    partitions[current_node] = assign_partition(current_node, seed=seed, partitions=5)
                 partition = partitions[current_node]
                 
                 accessions = genbank_accession.split(";")
