@@ -33,7 +33,7 @@ def get_vmr(local_path) -> Path:
 
 
 @dataclass(kw_only=True)
-class Species():
+class Genome():
     accession:str
     index:int
     count:int
@@ -47,29 +47,31 @@ class Stack():
 
 @dataclass(kw_only=True)
 class VanjariStackTrainingDataset(Dataset):
-    species: list[Species]
+    genomes: list[Genome]
     treedict: TreeDict
     array:np.memmap|np.ndarray
     stack_size:int = 16
     deterministic:bool = False
 
     def __len__(self):
-        return len(self.species)
+        return len(self.genomes)
 
     def __getitem__(self, idx):
-        species = self.species[idx]
-        stack_size = min(self.stack_size, species.count)
-        rng = np.random.RandomState(adler32(species.accession.encode("ascii"))) if self.deterministic else np.random
-        array_index = species.index + rng.randint(0, species.count-stack_size+1)
+        genome = self.genomes[idx]
+        stack_size = min(self.stack_size, genome.count)
+        rng = np.random.RandomState(adler32(genome.accession.encode("ascii"))) if self.deterministic else np.random
+        array_index = genome.index + rng.randint(0, genome.count-stack_size+1)
 
         with torch.no_grad():
             data = np.array(self.array[array_index:array_index+stack_size, :], copy=False)
             embedding = torch.tensor(data, dtype=torch.float16)
             del data
 
-        seq_detail = self.treedict[species.accession+":0"]
+        seq_detail = self.treedict[genome.accession+":0"]
         node_id = int(seq_detail.node_id)
         del seq_detail
+        
+        assert embedding.shape[-1] == 1024, f"Embedding shape restricted to 1024, here is {embedding.shape[-1]}"
         
         return embedding, node_id
 
@@ -114,6 +116,8 @@ class VanjariStackDataModule(L.LightningDataModule):
         self.training = []
         self.validation = []
 
+        assert self.array.shape[-1] == 1024, f"Embedding shape restricted to 1024, here is {self.array.shape[-1]}"
+
         random.seed(self.seed)
 
         current_list = None
@@ -122,17 +126,17 @@ class VanjariStackDataModule(L.LightningDataModule):
             if isinstance(index, list):
                 assert len(index) == 1
                 index = index[0]
-            species_accession = accession.split(":")[0]
-            if current_accession != species_accession:
+            genome_accession = accession.split(":")[0]
+            if current_accession != genome_accession:
                 if current_list is not None:
-                    current_list.append(Species(accession=current_accession, index=start_index, count=index-start_index))
-                current_accession = species_accession
+                    current_list.append(Genome(accession=current_accession, index=start_index, count=index-start_index))
+                current_accession = genome_accession
                 start_index = index
 
                 detail = self.treedict[accession]
                 current_list = self.validation if detail.partition == self.validation_partition else self.training
         
-        current_list.append(Species(accession=current_accession, index=start_index, count=index-start_index))
+        current_list.append(Genome(accession=current_accession, index=start_index, count=index-start_index))
 
         if self.max_items:
             self.training = self.training[:self.max_items]
@@ -144,9 +148,9 @@ class VanjariStackDataModule(L.LightningDataModule):
         self.train_dataset = self.create_dataset(self.training, deterministic=False)
         self.val_dataset = self.create_dataset(self.validation, deterministic=True)
 
-    def create_dataset(self, species:list[Species], deterministic:bool) -> VanjariStackTrainingDataset:
+    def create_dataset(self, genomes:list[Genome], deterministic:bool) -> VanjariStackTrainingDataset:
         return VanjariStackTrainingDataset(
-            species=species,
+            genomes=genomes,
             treedict=self.treedict, 
             array=self.array,
             stack_size=self.stack_size,
@@ -275,42 +279,42 @@ def build_memmap_array(
     return memmap_array, accessions
 
 
-def build_species_list(accessions:list[str]) -> list[Species]:
-    species_list = []
-    current_species = None
-    species_index_start = 0
+def build_genome_list(accessions:list[str]) -> list[Genome]:
+    genome_list = []
+    current_genome = None
+    genome_index_start = 0
     for index, accession in enumerate(accessions):
-        species_accession = accession.split(":")[0]
-        if current_species is None:
-            current_species = species_accession
+        genome_accession = accession.split(":")[0]
+        if current_genome is None:
+            current_genome = genome_accession
 
-        # Create new stack if we have a new species or if we get to the stack size
-        if current_species != species_accession:
-            species_list.append(Species(accession=current_species, index=species_index_start, count=index-species_index_start))
-            species_index_start = index
-            current_species = species_accession
+        # Create new stack if we have a new genome or if we get to the stack size
+        if current_genome != genome_accession:
+            genome_list.append(Genome(accession=current_genome, index=genome_index_start, count=index-genome_index_start))
+            genome_index_start = index
+            current_genome = genome_accession
 
     # Create a new stack at the end of the loop
-    species_list.append(Species(accession=current_species, index=species_index_start, count=index-species_index_start))
+    genome_list.append(Genome(accession=current_genome, index=genome_index_start, count=index-genome_index_start))
 
-    return species_list
+    return genome_list
 
 
 def build_stacks(accessions:list[str], stack_size:int=32, overlap:int=8) -> tuple[list[Stack], list[str]]:
-    species_list = build_species_list(accessions)
+    genome_list = build_genome_list(accessions)
     stacks = []
-    species_names = []
-    for species in species_list:
-        species_name = species.accession
-        if species.count <= stack_size:
-            stacks.append(Stack(start=species.index, end=species.index+species.count))
-            species_names.append(species_name)
+    genome_names = []
+    for genome in genome_list:
+        genome_name = genome.accession
+        if genome.count <= stack_size:
+            stacks.append(Stack(start=genome.index, end=genome.index+genome.count))
+            genome_names.append(genome_name)
         else:
-            intervals = generate_overlapping_intervals(species.count, stack_size, overlap)
+            intervals = generate_overlapping_intervals(genome.count, stack_size, overlap)
             for interval in intervals:
-                stacks.append(Stack(start=species.index+interval[0], end=species.index+interval[1]))
-                species_names.append(species_name)
-    return stacks, species_names
+                stacks.append(Stack(start=genome.index+interval[0], end=genome.index+interval[1]))
+                genome_names.append(genome_name)
+    return stacks, genome_names
 
 
 def assign_partition(name: str, seed: int = 42, partitions: int = 5) -> int:

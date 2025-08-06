@@ -335,7 +335,6 @@ class VanjariBase(ta.TorchApp):
     @ta.method    
     def metrics(self) -> list[tuple[str,Metric]]:
         return [
-            # ('species_accuracy', GreedyAccuracy(root=self.classification_tree, name="species_accuracy")), 
             ('rank_accuracy', ICTVTorchMetric(root=self.classification_tree)),
         ]
 
@@ -841,3 +840,53 @@ class Vanjari(VanjariNT):
             results = torch.cat(results_list, dim=0)
 
         return self.output_results(results, **kwargs)
+
+    @ta.tool
+    def remove_reverse(
+        self,
+        memmap:Path=ta.Param(...),
+        memmap_index:Path=ta.Param(...),
+        treedict:Path=ta.Param(None),
+        new_memmap:Path=ta.Param(...),
+        new_memmap_index:Path=ta.Param(...),
+        new_treedict:Path=ta.Param(None),
+    ):
+        "Removes reverse complement from Vanjari input files."
+        if treedict:
+            treedict = TreeDict.load(Path(treedict))        
+
+        dtype = 'float16'
+        memmap_index_data = memmap_index.read_text().strip().split("\n")
+        count = len(memmap_index_data)
+        memmap_array = read_memmap(memmap, count, dtype=dtype)
+
+        new_memmap_index_data = [accession for accession in memmap_index_data if not accession.endswith("r")]
+        new_memmap = Path(new_memmap)
+        new_memmap.parent.mkdir(parents=True, exist_ok=True)
+
+        shape = (len(new_memmap_index_data), memmap_array.shape[-1])
+        new_memmap_array = np.memmap(new_memmap, dtype=dtype, mode='w+', shape=shape)
+        
+        # Loop through and remove reverse
+        index = 0
+        for old_index in range(len(memmap_index_data)):
+            accession = memmap_index_data[old_index]
+            if accession.endswith("r"):
+                if treedict is not None:
+                    treedict.pop(accession, None)
+                continue
+            
+            new_memmap_array[index,:] = memmap_array[old_index,:].copy()
+            index += 1
+        
+        # Save new index
+        new_memmap_index = Path(new_memmap_index)
+        new_memmap_index.parent.mkdir(parents=True, exist_ok=True)
+        new_memmap_index.write_text("\n".join(new_memmap_index_data))
+
+        # Save new treedict
+        if new_treedict and treedict is not None:
+            new_treedict = Path(new_treedict)
+            new_treedict.parent.mkdir(parents=True, exist_ok=True)
+            treedict.save(new_treedict)
+
