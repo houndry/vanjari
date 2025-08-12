@@ -39,7 +39,7 @@ Vanjari can be installed using pip:
 
 .. code-block:: bash
 
-    pip install git+https://github.com/bloodhound-devs/vanjari.git
+    pip install git+https://github.com/bloodhound-devs/vanjari.git@barbet
 
 
 Usage
@@ -123,7 +123,7 @@ You can try out Vanjari on the Bacteriophage MS2 (Emesvirus zinderi) genome.
 
 .. code-block:: bash
 
-    wget "https://raw.githubusercontent.com/bloodhound-devs/vanjari/main/data/MS2.fasta" -O MS2.fasta
+    wget "https://eutils.ncbi.nlm.nih.gov/entrez/eutils/efetch.fcgi?db=nuccore&id=NC_001417.2&rettype=fasta&retmode=text" -O MS2.fasta
 
 Then run the following command:
 
