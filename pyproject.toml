@@ -12,10 +12,10 @@ numpy = "<2.0.0"
 hierarchicalsoftmax = ">=1.4.4"
 h5py = ">=3.8.0"
 bio-corgi = ">=0.4.3"
-barbet = {git = "https://github.com/bloodhound-devs/bloodhound.git", branch="barbet"}
 pyfastx = ">=1.1.0"
 openpyxl = ">=3.1.5"
 transformers = "^4.53.2"
+barbet = "^0.1.1"
 
 [tool.poetry.group.dev.dependencies]
 pytest = ">=6.2.5"
