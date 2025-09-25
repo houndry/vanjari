@@ -7,8 +7,8 @@
 #SBATCH --cpus-per-task=1
  
 # set your minimum acceptable walltime=days-hours:minutes:seconds
-#SBATCH -t 5:00:00
-# SBATCH -t 3-0:00:00
+# SBATCH -t 5:00:00
+#SBATCH -t 3-0:00:00
  
 #SBATCH --mem-per-cpu=320G
  
@@ -41,19 +41,25 @@ EMBEDDING_MODEL=/data/gpfs/projects/punim0111/CORGI_TERRIER/checkpoint-182000/
 CHECKPOINT=/data/gpfs/projects/punim0111/CORGI_TERRIER/rob/vanjarint/logs/VanjariNT-b16f1024l2g2e0lr0.0001ep20d0.4-checkpoint121000l1000/version_0/checkpoints/checkpoint-epoch\=17-species_accuracy\=0.21.ckpt
 CHECKPOINT=/data/gpfs/projects/punim0111/CORGI_TERRIER/rob/vanjarint/logs/VanjariNT-b16f1024l2g2e0lr0.0001ep20d0.4-checkpoint182000l1000-val/version_1/checkpoints/checkpoint-epoch\=17-species_accuracy\=0.041.ckpt
 
-FASTA_DIR=/data/gpfs/projects/punim0111/CORGI_TERRIER/rob/ICTV-TaxonomyChallenge/dataset/dataset_challenge
 #FASTA_DIR=/data/gpfs/projects/punim0111/CORGI_TERRIER/rob/ICTV-TaxonomyChallenge/dataset/dataset_challenge_tiny
 LENGTH=1000
 #LENGTH=500
-vanjarint \
+
+
+FASTA_DIR=/data/gpfs/projects/punim0111/CORGI_TERRIER/rob/ICTV-TaxonomyChallenge/dataset/dataset_challenge
+vanjari \
     --input ${FASTA_DIR} \
     --model-name $EMBEDDING_MODEL \
     --memmap-array-path ${FASTA_DIR}/embeddings/checkpoint-182000-l${LENGTH}.npy \
     --memmap-index ${FASTA_DIR}/embeddings/checkpoint-182000-l${LENGTH}.txt \
-    --output-csv results/vanjarint-0.1.csv \
-    --output-feather results/vanjarint-0.1.feather
+    --output-csv results/vanjari-0.1.csv \
+    --output-feather results/vanjari-0.1.feather
 
     #--probability-csv ${FASTA_DIR}/predictions/VanjariNT-b16f1024l2g2e0lr0.0001ep20d0.4-checkpoint121000l1000.probability.csv
     #--image-dir ${FASTA_DIR}/predictions/VanjariNT-b16f1024l2g2e0lr0.0001ep20d0.4-checkpoint121000l1000-images
 
 
+FASTA_DIR=/data/gpfs/projects/punim0111/CORGI_TERRIER/rob/ICTV-TaxonomyChallenge/dataset/dataset_challenge_tiny
+vanjari \
+    --input ${FASTA_DIR} \
+    --output-csv tiny.csv

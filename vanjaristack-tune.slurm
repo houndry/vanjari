@@ -1,11 +1,12 @@
 #!/bin/bash
  
 # To give your job a name, replace "MyJob" with an appropriate name
-#SBATCH --job-name=vnt-tr500
+#SBATCH --job-name=bh-virus
  
 #SBATCH --ntasks=1
 #SBATCH --cpus-per-task=8
- 
+#SBATCH --array=1-20%1
+
 # set your minimum acceptable walltime=days-hours:minutes:seconds
 #SBATCH -t 12:00:00
 # SBATCH -t 8-0:00:00
@@ -36,18 +37,16 @@ export HF_HOME=/home/rturnbull/wytamma/huggingface
 
 GROWTH=2
 LAYERS=2
-LR=0.0001
-EPOCHS=20
-BATCH=16
 EMBEDDING=0
-#FEATURES=768
+LR=0.0001
+EPOCHS=50
+BATCH=16
+FEATURES=768
 FEATURES=1024
-#FEATURES=256
-DROPOUT=0.4
-#FEATURES=1024
 #FEATURES=256
 ESM_LAYERS=6
 DROPOUT=0.4
+STACK=16
 #FEATURES=2048
 
 
@@ -55,17 +54,18 @@ DROPOUT=0.4
 #MODEL_NAME=NT
 #MODEL_NAME=checkpoint-66000
 
-LENGTH=1000
-#LENGTH=500
-MODEL_NAME=checkpoint182000l${LENGTH}
-#MODEL_NAME=checkpoint66000l${LENGTH}
 
+LENGTH=500
+LENGTH=1000
+#MODEL_NAME=checkpoint121000l${LENGTH}
+MODEL_NAME=checkpoint66000l${LENGTH}
+MODEL_NAME=checkpoint-66000
+MODEL_NAME=checkpoint121000l${LENGTH}
+
+MODEL_NAME=checkpoint182000l${LENGTH}
 
 PREPROCESSED_DIR=/data/gpfs/projects/punim0111/CORGI_TERRIER/rob/${MODEL_NAME}
 TREEDICT=${PREPROCESSED_DIR}/${MODEL_NAME}-validation.td
-if [[ ! -s "$TREEDICT" ]]; then
-        vanjarint-tools set-validation-partition --treedict ${PREPROCESSED_DIR}/${MODEL_NAME}.td --output $TREEDICT --validation-csv /data/gpfs/projects/punim0111/CORGI_TERRIER/rob/validation_fastas/validation.csv
-fi
 MEMMAP=${PREPROCESSED_DIR}/${MODEL_NAME}.npy
 MEMMAP_INDEX=${PREPROCESSED_DIR}/${MODEL_NAME}.txt
 
@@ -74,23 +74,19 @@ if [[ ! -s "$MEMMAP" ]]; then
         cp ${PREPROCESSED_DIR}/${MODEL_NAME}.npy $MEMMAP
 fi
 
+RUN_NAME=VanjariStack-b${BATCH}ep${EPOCHS}-${MODEL_NAME}s${STACK}-l${LENGTH}
 
-
-vanjarint-tools train  \
+vanjaristack-tools tune  \
+        --engine optuna \
+        --id $RUN_NAME \
         --memmap  $MEMMAP \
         --memmap-index  ${MEMMAP_INDEX} \
         --treedict  $TREEDICT \
-        --features $FEATURES \
-        --intermediate-layers $LAYERS \
-        --growth-factor $GROWTH \
-        --dropout $DROPOUT \
-        --family-embedding-size $EMBEDDING \
         --max-epochs $EPOCHS \
-        --max-learning-rate $LR \
+        --embedding-model ESM${ESM_LAYERS} \
+        --stack-size $STACK \
         --num-workers 2 \
-        --train-all \
-        --run-name VanjariNT-b${BATCH}f${FEATURES}l${LAYERS}g${GROWTH}e${EMBEDDING}lr${LR}ep${EPOCHS}d${DROPOUT}-${MODEL_NAME}-all \
-        --project-name VanjariNTVal \
+        --project-name VanjariStack \
         --wandb-entity   "mariadelmarq-The University of Melbourne" \
         --wandb 
 

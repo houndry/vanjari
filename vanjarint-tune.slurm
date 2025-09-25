@@ -5,9 +5,10 @@
  
 #SBATCH --ntasks=1
 #SBATCH --cpus-per-task=8
- 
+#SBATCH --array=1-20%1
+
 # set your minimum acceptable walltime=days-hours:minutes:seconds
-#SBATCH -t 12:00:00
+#SBATCH -t 8:00:00
 # SBATCH -t 8-0:00:00
  
 #SBATCH --mem-per-cpu=12G
@@ -36,14 +37,11 @@ export HF_HOME=/home/rturnbull/wytamma/huggingface
 
 GROWTH=2
 LAYERS=2
+EMBEDDING=0
 LR=0.0001
 EPOCHS=20
 BATCH=16
-EMBEDDING=0
-#FEATURES=768
-FEATURES=1024
-#FEATURES=256
-DROPOUT=0.4
+FEATURES=768
 #FEATURES=1024
 #FEATURES=256
 ESM_LAYERS=6
@@ -75,22 +73,19 @@ if [[ ! -s "$MEMMAP" ]]; then
 fi
 
 
+RUN_NAME=VanjariNT-b${BATCH}ep${EPOCHS}-${MODEL_NAME}-tune
 
-vanjarint-tools train  \
+vanjarint-tools tune  \
+        --engine optuna \
+        --id $RUN_NAME \
         --memmap  $MEMMAP \
         --memmap-index  ${MEMMAP_INDEX} \
         --treedict  $TREEDICT \
-        --features $FEATURES \
-        --intermediate-layers $LAYERS \
-        --growth-factor $GROWTH \
-        --dropout $DROPOUT \
         --family-embedding-size $EMBEDDING \
         --max-epochs $EPOCHS \
-        --max-learning-rate $LR \
+        --embedding-model ESM${ESM_LAYERS} \
         --num-workers 2 \
-        --train-all \
-        --run-name VanjariNT-b${BATCH}f${FEATURES}l${LAYERS}g${GROWTH}e${EMBEDDING}lr${LR}ep${EPOCHS}d${DROPOUT}-${MODEL_NAME}-all \
-        --project-name VanjariNTVal \
+        --project-name VanjariNT \
         --wandb-entity   "mariadelmarq-The University of Melbourne" \
         --wandb 
 
