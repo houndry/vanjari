@@ -14,8 +14,10 @@ class VanjariAttentionModel(nn.Module):
         growth_factor:float=2.0, 
         dropout:float=0.0,
         attention_hidden_size:int=512,
+        return_embeddings:bool=False,
     ):
         super().__init__()
+        self.return_embeddings = return_embeddings
 
         assert growth_factor > 0.0
         
@@ -49,6 +51,9 @@ class VanjariAttentionModel(nn.Module):
         context_vector = torch.sum(attention_weights * x, dim=1)
 
         result = self.classifier(context_vector)
+
+        if getattr(self, "return_embeddings", False):
+            return result, context_vector
 
         return result
         
