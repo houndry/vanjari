@@ -676,7 +676,7 @@ class VanjariNT(VanjariBase, Bloodhound):
         # sort to get original order
         results_df = results_df.sort_values(by="original_index").drop(columns=["original_index"]).reset_index()
 
-        # sort according to sequence id
+        # group according to sequence id
         results_df = results_df.sort_values(by="SequenceID").reset_index(drop=True)
 
         if output_feather:
