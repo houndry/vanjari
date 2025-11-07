@@ -614,6 +614,11 @@ class VanjariNT(VanjariBase, Barbet):
         return dataset, sequence_ids
 
     @ta.method
+    def module_class(self, **kwargs) -> 'CorgiLightningModule':
+        from corgi.modules import CorgiLightningModule
+        return CorgiLightningModule
+
+    @ta.method
     def extra_hyperparameters(self, length:int=1000) -> dict:
         """ Extra hyperparameters to save with the module. """
         return dict(
@@ -626,6 +631,7 @@ class VanjariNT(VanjariBase, Barbet):
         self,
         module,
         input:list[Path]=ta.Param(..., help="Fasta file(s) or a directory of Fasta files."),
+        embeddings: Path = ta.Param(None, help="A path to save the embeddings from the model output."),
         memmap_array_path:Path=None, # TODO explain
         memmap_index:Path=None, # TODO explain
         model_name:str=ta.Param("", help="The name of the embedding model. By default, it uses the Vanjari pretrained language model based on nucleotide-transformer-v2-500m"),
@@ -659,6 +665,11 @@ class VanjariNT(VanjariBase, Barbet):
         dataset, self.sequence_ids = self.build_dataset_sequence_ids(memmap_array, accessions, **kwargs)
         dataloader = DataLoader(dataset, batch_size=batch_size, num_workers=num_workers, shuffle=False)
 
+        if embeddings:
+            module.set_embedding_path(
+                embeddings_path=embeddings,
+                dataloader=dataloader,
+            )
         # module.setup_prediction(self, self.sequence_ids, threshold=0.0, save_probabilities=False, ranks=RANKS)
 
         return dataloader
