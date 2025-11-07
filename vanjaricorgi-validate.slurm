@@ -41,12 +41,32 @@ CHECKPOINT=/data/gpfs/projects/punim0111/CORGI_TERRIER/rob/vanjarint/logs/vanjar
 FASTA_DIR=/data/gpfs/projects/punim0111/CORGI_TERRIER/rob/ICTV-TaxonomyChallenge/dataset/dataset_challenge_tiny
 FASTA_DIR=/data/gpfs/projects/punim0111/CORGI_TERRIER/rob/validation_fastas
 
-vanjaricorgi-tools predict \
+OUTPUT=${FASTA_DIR}/predictions/vanjari-lr0.001m100000000000e100max5000val2000b3.csv
+FEATHER=${FASTA_DIR}/predictions/vanjari-lr0.001m100000000000e100max5000val2000b3.feather
+
+CHECKPOINT=./logs/vanjaricorgi-attn512-lr0.001m100000000000e100max5000val2000b32/version_1/checkpoints/checkpoint-epoch\=96-Genus\=0.53.ckpt
+OUTPUT=${FASTA_DIR}/predictions/vanjaricorgi-attn512-lr0.001m100000000000e100max5000val2000b32.csv
+FEATHER=${FASTA_DIR}/predictions/vanjaricorgi-attn512-lr0.001m100000000000e100max5000val2000b32.feather
+
+CHECKPOINT=logs/vanjari-fast-lr0.001m100000000000e100max5000val2000b32-all/version_2/checkpoints/checkpoint-epoch\=96-Genus\=0.84.ckpt
+OUTPUT=${FASTA_DIR}/predictions/vanjari-fast-lr0.001m100000000000e100max5000val2000b32-all.csv
+FEATHER=${FASTA_DIR}/predictions/vanjari-fast-lr0.001m100000000000e100max5000val2000b32-all.feather
+
+vanjari-fast \
     --file ${FASTA_DIR} \
     --checkpoint $CHECKPOINT \
-    --output-csv ${FASTA_DIR}/predictions/vanjari-lr0.001m100000000000e100max5000val2000b3.csv \
-    --prediction-threshold 0.0
+    --output-csv $OUTPUT \
+    --output-feather $FEATHER \
+    --prediction-threshold 0.0 
 
+    
+
+
+#ID=KP791805
+#vanjaricorgi-tools predict     --file ${FASTA_DIR}/$ID.fasta.gz     --checkpoint $CHECKPOINT     --output-csv $ID.csv     --prediction-threshold 0.0
+
+
+vanjari-tools evaluate-csv --prediction $OUTPUT --truth ../validation_fastas/validation.csv
 
 #    --image-dir ${FASTA_DIR}/predictions/vanjari-lr0.001m100000000000e100max5000val2000b3-images    
 #    --probability-csv ${FASTA_DIR}/predictions/vanjari-lr0.001m100000000000e100max5000val2000b3.probability.csv \

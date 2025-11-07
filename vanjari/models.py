@@ -43,6 +43,9 @@ class VanjariAttentionModel(nn.Module):
         if self.model_dtype != x.dtype:
             x = x.to(dtype=self.model_dtype)
 
+        # Hack for sanity
+        assert x.shape[-1] == 1024
+
         x = self.sequential(x)
 
         attention_scores = self.attention_layer(x)
@@ -57,7 +60,6 @@ class VanjariAttentionModel(nn.Module):
 
         return result
         
-
 
 class ConvAttentionClassifier(nn.Module):
     def __init__(

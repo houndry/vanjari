@@ -38,21 +38,36 @@ export HF_HOME=/home/rturnbull/wytamma/huggingface
 
 EMBEDDING_MODEL=/data/gpfs/projects/punim0111/CORGI_TERRIER/checkpoint-182000/
 
-CHECKPOINT=/data/gpfs/projects/punim0111/CORGI_TERRIER/rob/vanjarint/logs/VanjariNT-b16f1024l2g2e0lr0.0001ep20d0.4-checkpoint182000l1000-val/version_1/checkpoints/checkpoint-epoch\=17-species_accuracy\=0.041.ckpt
+LENGTH=1000
+
+#CHECKPOINT=/data/gpfs/projects/punim0111/CORGI_TERRIER/rob/vanjarint/logs/VanjariNT-b16f768l2g2e0lr0.0001ep20d0.4-checkpoint182000l500-genus/version_0/checkpoints/checkpoint-epoch\=17-Genus\=0.37.ckpt
+#LENGTH=500
 
 
 FASTA_DIR=/data/gpfs/projects/punim0111/CORGI_TERRIER/rob/validation_fastas
-LENGTH=1000
-#LENGTH=500
-vanjarint-tools predict \
+
+CHECKPOINT=/data/gpfs/projects/punim0111/CORGI_TERRIER/rob/vanjarint/logs/VanjariNT-b16f1024l2g2e0lr0.0001ep20d0.4-checkpoint182000l1000-val/version_1/checkpoints/checkpoint-epoch\=17-species_accuracy\=0.041.ckpt
+
+OUTPUT=${FASTA_DIR}/predictions/VanjariNT-b16f768l2g2e0lr0.0001ep20d0.4-checkpoint182000l500-genus.csv
+FEATHER=${FASTA_DIR}/predictions/VanjariNT-b16f768l2g2e0lr0.0001ep20d0.4-checkpoint182000l500-genus.feather
+
+CHECKPOINT=/data/gpfs/projects/punim0111/CORGI_TERRIER/rob/vanjarint/logs/VanjariNT-b16f1024l2g2e0lr0.0001ep20d0.4-checkpoint182000l1000-all/version_2/checkpoints/checkpoint-epoch\=19-Genus\=0.8.ckpt
+OUTPUT=${FASTA_DIR}/predictions/VanjariNT-b16f1024l2g2e0lr0.0001ep20d0.4-checkpoint182000l1000-all.csv
+FEATHER=${FASTA_DIR}/predictions/VanjariNT-b16f1024l2g2e0lr0.0001ep20d0.4-checkpoint182000l1000-all.feather
+
+
+vanjarint \
     --input ${FASTA_DIR} \
     --model-name $EMBEDDING_MODEL \
     --checkpoint $CHECKPOINT \
-    --extension "fasta.gz" \
     --memmap-array-path ${FASTA_DIR}/embeddings/checkpoint-182000-l${LENGTH}.npy \
     --memmap-index ${FASTA_DIR}/embeddings/checkpoint-182000-l${LENGTH}.txt \
-    --length $LENGTH \
-    --output-csv ${FASTA_DIR}/predictions/VanjariNT-b16f1024l2g2e0lr0.0001ep20d0.4-checkpoint182000l1000-val.csv \
-    --probability-csv ${FASTA_DIR}/predictions/VanjariNT-b16f1024l2g2e0lr0.0001ep20d0.4-checkpoint182000l1000-val.probability.csv \
-    --image-dir ${FASTA_DIR}/predictions/VanjariNT-b16f1024l2g2e0lr0.0001ep20d0.4-checkpoint182000l1000-val-images
+    --output-feather $FEATHER \
+    --output-csv $OUTPUT
+#    --probability-csv ${FASTA_DIR}/predictions/VanjariNT-b16f768l2g2e0lr0.0001ep20d0.4-checkpoint182000l500-genus.probability.csv \
+#    --image-dir ${FASTA_DIR}/predictions/VanjariNT-b16f768l2g2e0lr0.0001ep20d0.4-checkpoint182000l500-genus-images
 
+
+vanjari-tools evaluate-csv --prediction $OUTPUT --truth ../validation_fastas/validation.csv
+
+#vanjari-tools evaluate-csv --prediction ${FASTA_DIR}/predictions/VanjariNT-b16f1024l2g2e0lr0.0001ep20d0.4-checkpoint182000l1000-val.csv --truth ../validation_fastas/validation.csv

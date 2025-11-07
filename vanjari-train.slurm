@@ -8,12 +8,13 @@
  
 # set your minimum acceptable walltime=days-hours:minutes:seconds
 # SBATCH -t 7-0:00:00
-#SBATCH -t 1-0:00:00
+#SBATCH -t 0-12:00:00
  
 #SBATCH --mem-per-cpu=12G
  
 # SBATCH -p cascade
-#SBATCH -p gpu-a100,gpu-h100
+# SBATCH -p gpu-a100,gpu-h100,gpu-a100-short
+#SBATCH -p gpu-h100
 # SBATCH -p gpu-a100-short,gpu-a100,gpu-a100-preempt
 # SBATCH -p gpu-a100-short,gpu-a100
 # SBATCH -p gpu-a100-short
@@ -35,7 +36,7 @@ source .venv/bin/activate
 
 SEQBANK=/tmp/ictv.sb
 cp -r /home/rturnbull/wytamma/rob/virus/ictv.sb $SEQBANK
-SEQTREE=/home/rturnbull/wytamma/rob/virus/ictv-validation.st
+TREEDICT=/home/rturnbull/wytamma/rob/virus/ictv-validation.td
 
 LEARNING_RATE=0.001
 MACC=100000000000
@@ -44,10 +45,10 @@ MAX_LENGTH=5000
 BATCH_SIZE=32
 VAL_LENGTH=2000
 
-RUN_NAME=vanjari-lr${LEARNING_RATE}m${MACC}e${EPOCHS}max${MAX_LENGTH}val${VAL_LENGTH}b${BATCH_SIZE}
+RUN_NAME=vanjari-fast-lr${LEARNING_RATE}m${MACC}e${EPOCHS}max${MAX_LENGTH}val${VAL_LENGTH}b${BATCH_SIZE}-all-attn512-h100
 
-vanjari-tools train         \
-    --seqtree $SEQTREE         \
+vanjari-fast-tools train         \
+    --treedict $TREEDICT         \
     --seqbank $SEQBANK         \
     --max-learning-rate $LEARNING_RATE         \
     --macc $MACC         \
@@ -61,6 +62,7 @@ vanjari-tools train         \
     --max-epochs $EPOCHS \
     --run-name $RUN_NAME \
     --test-partition -1 \
+    --train-all \
     --batch-size $BATCH_SIZE \
     --validation-partition 0 \
     --project-name ICTV-val \

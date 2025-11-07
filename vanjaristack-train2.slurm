@@ -53,8 +53,9 @@ STACK=16
 #MODEL_NAME=NT
 #MODEL_NAME=checkpoint-66000
 
-LENGTH=1000
+
 LENGTH=500
+LENGTH=1000
 #MODEL_NAME=checkpoint121000l${LENGTH}
 MODEL_NAME=checkpoint66000l${LENGTH}
 MODEL_NAME=checkpoint-66000
@@ -63,7 +64,7 @@ MODEL_NAME=checkpoint121000l${LENGTH}
 MODEL_NAME=checkpoint182000l${LENGTH}
 
 PREPROCESSED_DIR=/data/gpfs/projects/punim0111/CORGI_TERRIER/rob/${MODEL_NAME}
-SEQTREE=${PREPROCESSED_DIR}/${MODEL_NAME}-validation.st
+TREEDICT=${PREPROCESSED_DIR}/${MODEL_NAME}-validation.td
 MEMMAP=${PREPROCESSED_DIR}/${MODEL_NAME}.npy
 MEMMAP_INDEX=${PREPROCESSED_DIR}/${MODEL_NAME}.txt
 
@@ -75,7 +76,7 @@ fi
 vanjaristack-tools train  \
         --memmap  $MEMMAP \
         --memmap-index  ${MEMMAP_INDEX} \
-        --seqtree  $SEQTREE \
+        --treedict  $TREEDICT \
         --features $FEATURES \
         --intermediate-layers $LAYERS \
         --growth-factor $GROWTH \
@@ -85,8 +86,8 @@ vanjaristack-tools train  \
         --embedding-model ESM${ESM_LAYERS} \
         --stack-size $STACK \
         --num-workers 2 \
-        --run-name VanjariStack-b${BATCH}f${FEATURES}l${LAYERS}g${GROWTH}lr${LR}ep${EPOCHS}d${DROPOUT}-${MODEL_NAME}s${STACK}-val-l${LENGTH} \
-        --project-name VanjariStackVal \
+        --run-name VanjariStack-b${BATCH}f${FEATURES}l${LAYERS}g${GROWTH}lr${LR}ep${EPOCHS}d${DROPOUT}-${MODEL_NAME}s${STACK}-old2-l${LENGTH} \
+        --project-name VanjariStack \
         --wandb-entity   "mariadelmarq-The University of Melbourne" \
         --wandb 
 
