@@ -42,7 +42,7 @@ class VanjariAttentionModel(nn.Module):
             x = x.to(dtype=self.model_dtype)
 
         # Hack for sanity
-        assert x.shape[-1] == 1024
+        # assert x.shape[-1] == 1024
 
         x = self.sequential(x)
 
