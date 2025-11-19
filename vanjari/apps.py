@@ -665,11 +665,11 @@ class VanjariNT(VanjariBase, Barbet):
         dataset, self.sequence_ids = self.build_dataset_sequence_ids(memmap_array, accessions, **kwargs)
         dataloader = DataLoader(dataset, batch_size=batch_size, num_workers=num_workers, shuffle=False)
 
-        # if embeddings:
-        #     module.set_embedding_path(
-        #         embeddings_path=embeddings,
-        #         dataloader=dataloader,
-        #     )
+        if embeddings:
+            module.set_embedding_path(
+                embeddings_path=embeddings,
+                dataloader=dataloader,
+            )
         # module.setup_prediction(self, self.sequence_ids, threshold=0.0, save_probabilities=False, ranks=RANKS)
 
         return dataloader
