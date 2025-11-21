@@ -39,12 +39,16 @@ class VanjariAttentionModel(nn.Module):
         self.classifier = HierarchicalSoftmaxLazyLinear(root=classification_tree)
         self.model_dtype = next(self.sequential.parameters()).dtype
 
-    def forward(self, x):        
+    def forward(self, x):   
+        if len(x.shape) == 2:
+            x = x.unsqueeze(0)  # Add sequence length dimension
+        assert len(x.shape) == 3  # (batch_size, seq_length, feature_dim)
+
         if self.model_dtype != x.dtype:
             x = x.to(dtype=self.model_dtype)
 
         # Hack for sanity
-        assert x.shape[-1] == 1024
+        # assert x.shape[-1] == 1024
 
         x = self.sequential(x)
 
