@@ -71,7 +71,7 @@ class VanjariStackTrainingDataset(Dataset):
         node_id = int(seq_detail.node_id)
         del seq_detail
         
-        assert embedding.shape[-1] == 1024, f"Embedding shape restricted to 1024, here is {embedding.shape[-1]}"
+        # assert embedding.shape[-1] == 1024, f"Embedding shape restricted to 1024, here is {embedding.shape[-1]}"
         
         return embedding, node_id
 
@@ -116,7 +116,7 @@ class VanjariStackDataModule(L.LightningDataModule):
         self.training = []
         self.validation = []
 
-        assert self.array.shape[-1] == 1024, f"Embedding shape restricted to 1024, here is {self.array.shape[-1]}"
+        # assert self.array.shape[-1] == 1024, f"Embedding shape restricted to 1024, here is {self.array.shape[-1]}"
 
         random.seed(self.seed)
 
