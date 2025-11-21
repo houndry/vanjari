@@ -666,6 +666,8 @@ class VanjariNT(VanjariBase, Barbet):
         dataloader = DataLoader(dataset, batch_size=batch_size, num_workers=num_workers, shuffle=False)
 
         if embeddings:
+            dataloader.count = len(self.sequence_ids)
+            dataloader.chunk_details = [["file", seq_id, "description", 0] for seq_id in self.sequence_ids]
             module.set_embedding_path(
                 embeddings_path=embeddings,
                 dataloader=dataloader,
